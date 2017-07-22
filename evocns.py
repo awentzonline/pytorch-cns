@@ -10,10 +10,11 @@ from torchvision import datasets, transforms
 
 
 class Population:
-    def __init__(self, model_factory, num_models):
+    def __init__(self, model_factory, num_models, cuda):
         self.models = [model_factory() for _ in range(num_models)]
         self.num_models = num_models
         self.parent_code = self.encode_model(self.models[0])  # initial code
+        self.cuda = cuda
 
     def evaluate(self, x, y, f_loss):
         losses = np.zeros(self.num_models)
@@ -35,6 +36,8 @@ class Population:
             decoded = idct(subcode, norm='ortho')
             decoded = decoded.reshape(param.size())
             param.data = torch.from_numpy(decoded)
+        if self.cuda:
+            target_model.cuda()
         return target_model
 
     def perturb_children(self, perturbations):
@@ -44,6 +47,8 @@ class Population:
                 decoded = idct(subcode + perturbation[model_i], norm='ortho')
                 decoded = decoded.reshape(param.size())
                 param.data = torch.from_numpy(decoded)
+        if self.cuda:
+            self.cuda_all()
 
     def generation(self, x, y, f_loss, learning_rate=0.001, sigma=0.1):
         perturbations = self.make_perturbations()
@@ -78,3 +83,7 @@ class Population:
         model = self.models[0]  # hacktown
         self.decode_model(model, self.parent_code)
         return model
+
+    def cuda_all(self):
+        for model in self.models:
+            model.cuda()

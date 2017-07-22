@@ -199,17 +199,16 @@ label = torch.FloatTensor(opt.batchSize)
 real_label = 1
 fake_label = 0
 
-# if opt.cuda:
-#     # TODO: population.cuda()?
-#     criterion.cuda()
-#     input, label = input.cuda(), label.cuda()
-#     noise, fixed_noise = noise.cuda(), fixed_noise.cuda()
+if opt.cuda:
+    criterion.cuda()
+    input, label = input.cuda(), label.cuda()
+    noise, fixed_noise = noise.cuda(), fixed_noise.cuda()
 
 fixed_noise = Variable(fixed_noise)
 
 # setup optimizer
-population_g = Population(generator_factory, opt.population_size)
-population_d = Population(discriminator_factory, opt.population_size)
+population_g = Population(generator_factory, opt.population_size, opt.cuda)
+population_d = Population(discriminator_factory, opt.population_size, opt.cuda)
 
 for epoch in range(opt.niter):
     for i, data in enumerate(dataloader, 0):
@@ -219,8 +218,8 @@ for epoch in range(opt.niter):
         # train with real
         real_cpu, _ = data
         batch_size = real_cpu.size(0)
-        # if opt.cuda:
-        #     real_cpu = real_cpu.cuda()
+        if opt.cuda:
+            real_cpu = real_cpu.cuda()
         input.resize_as_(real_cpu).copy_(real_cpu)
         label.resize_(batch_size).fill_(real_label)
         inputv = Variable(input)

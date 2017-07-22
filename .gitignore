@@ -1,0 +1,13 @@
+*.DS_Store
+*.pyc
+*.swp
+*.egg-info
+__pycache__
+build/
+venv
+MANIFEST
+dist/
+output/
+*.h5
+monitor-data/
+data/

@@ -11,3 +11,5 @@ output/
 *.h5
 monitor-data/
 data/
+examples/data/
+examples/*.png

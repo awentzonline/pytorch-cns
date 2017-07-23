@@ -13,7 +13,8 @@ import torchvision.transforms as transforms
 import torchvision.utils as vutils
 from torch.autograd import Variable
 
-from evocns import DCTCodec, IdentityCodec, Population
+from evonet.codecs import DCTCodec, IdentityCodec
+from evonet.population import Population
 
 
 parser = argparse.ArgumentParser()

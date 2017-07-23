@@ -1,9 +1,11 @@
-Evolutionary DCGAN
-==================
-Train a DCGAN with evolutionary search. Adapted from the PyTorch DCGAN example.
+PyTorch-Evonet
+==============
+Train a neural networks with evolutionary search.
 
-Running the example
--------------------
+Examples
+--------
+
  * Download this repo
  * `pip install .` inside repo
- * Take a look in the examples directory
+
+`evodcgan.py`: DCGAN adapted from the PyTorch DCGAN example.

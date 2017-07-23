@@ -72,6 +72,8 @@ class Population:
     def __init__(self, model_factory, num_models, cuda):
         self.model_factory = model_factory
         self.model = model_factory()
+        if cuda:
+            self.model.cuda()
         self.num_weights = np.sum(np.prod(p.size()) for p in self.model.parameters())
         self._tmp_weights = np.zeros(self.num_weights).astype(np.float32)
         print(self.num_weights)
@@ -106,7 +108,7 @@ class Population:
 
     def generation(self, x, y, f_loss):
         losses = self.evaluate(x, y, f_loss)
-        ordered_losses = sorted([(loss, i) for i, loss in enumerate(losses)], reverse=True)
+        ordered_losses = sorted([(loss, i) for i, loss in enumerate(losses)])
         num_best = len(ordered_losses) // 2
         ordered_genomes = [self.genomes[i] for _, i in ordered_losses]
         for genome in ordered_genomes[num_best:]:

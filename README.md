@@ -1,6 +1,6 @@
-PyTorch-Evonet
+PyTorch-CNS
 ==============
-Train a neural networks with evolutionary search.
+An implementation of Compressed Network Search for PyTorch models.
 
 Examples
 --------

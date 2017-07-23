@@ -2,6 +2,8 @@ from __future__ import print_function
 import argparse
 import os
 import random
+
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.parallel
@@ -13,8 +15,7 @@ import torchvision.transforms as transforms
 import torchvision.utils as vutils
 from torch.autograd import Variable
 
-from evonet.codecs import DCTCodec, IdentityCodec
-from evonet.population import Population
+from cnslib.population import Population
 
 
 parser = argparse.ArgumentParser()
@@ -119,19 +120,19 @@ class _netG(nn.Module):
         self.main = nn.Sequential(
             # input is Z, going into a convolution
             nn.ConvTranspose2d(     nz, ngf * 8, 4, 1, 0, bias=False),
-            nn.BatchNorm2d(ngf * 8),
+            #nn.BatchNorm2d(ngf * 8),
             nn.ReLU(True),
             # state size. (ngf*8) x 4 x 4
             nn.ConvTranspose2d(ngf * 8, ngf * 4, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(ngf * 4),
+            #nn.BatchNorm2d(ngf * 4),
             nn.ReLU(True),
             # state size. (ngf*4) x 8 x 8
             nn.ConvTranspose2d(ngf * 4, ngf * 2, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(ngf * 2),
+            #nn.BatchNorm2d(ngf * 2),
             nn.ReLU(True),
             # state size. (ngf*2) x 16 x 16
             nn.ConvTranspose2d(ngf * 2,     ngf, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(ngf),
+            #nn.BatchNorm2d(ngf),
             nn.ReLU(True),
             # state size. (ngf) x 32 x 32
             nn.ConvTranspose2d(    ngf,      nc, 4, 2, 1, bias=False),
@@ -166,15 +167,15 @@ class _netD(nn.Module):
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf) x 32 x 32
             nn.Conv2d(ndf, ndf * 2, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(ndf * 2),
+            #nn.BatchNorm2d(ndf * 2),
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf*2) x 16 x 16
             nn.Conv2d(ndf * 2, ndf * 4, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(ndf * 4),
+            #nn.BatchNorm2d(ndf * 4),
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf*4) x 8 x 8
             nn.Conv2d(ndf * 4, ndf * 8, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(ndf * 8),
+            #nn.BatchNorm2d(ndf * 8),
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf*8) x 4 x 4
             nn.Conv2d(ndf * 8, 1, 4, 1, 0, bias=False),
@@ -215,9 +216,8 @@ if opt.cuda:
 fixed_noise = Variable(fixed_noise)
 
 # setup optimizer
-codec = dict(identity=IdentityCodec, dct=DCTCodec)[opt.model_codec]()
-population_g = Population(generator_factory, opt.population_size, codec, opt.cuda)
-population_d = Population(discriminator_factory, opt.population_size, codec, opt.cuda)
+population_g = Population(generator_factory, opt.population_size, opt.cuda)
+population_d = Population(discriminator_factory, opt.population_size, opt.cuda)
 
 for epoch in range(opt.niter):
     for i, data in enumerate(dataloader, 0):
@@ -234,25 +234,25 @@ for epoch in range(opt.niter):
         inputv = Variable(input)
         labelv = Variable(label)
 
-        losses_d = population_d.generation(inputv, labelv, criterion, opt.learning_rate, opt.sigma)
+        losses_d = population_d.generation(inputv, labelv, criterion)
         # train with fake
         noise.resize_(batch_size, nz, 1, 1).normal_(0, 1)
         noisev = Variable(noise)
-        netG = population_g.parent_model()
+        netG = population_g.model
         fake = netG(noisev)
         labelv = Variable(label.fill_(fake_label))
-        losses_d = population_d.generation(inputv, labelv, criterion, opt.learning_rate, opt.sigma)
+        losses_d = population_d.generation(inputv, labelv, criterion)
         ############################
         # (2) Update G network: maximize log(D(G(z)))
         ###########################
         labelv = Variable(label.fill_(real_label))  # fake labels are real for generator cost
-        netD = population_d.parent_model()
+        netD = population_d.model
         def g_loss(y_pred, y):
             return criterion(netD(y_pred), y)
-        losses_g = population_g.generation(noisev, labelv, g_loss, opt.learning_rate, opt.sigma)
+        losses_g = population_g.generation(noisev, labelv, g_loss)
         print('[{}/{}][{}/{}]: {} {} / G: {} {}'.format(
             epoch, opt.niter, i, len(dataloader),
-            losses_d.min(), losses_d.max(), losses_g.min(), losses_g.max()))
+            np.min(losses_d), np.max(losses_d), np.min(losses_g), np.max(losses_g)))
         if i % opt.save_every == 0:
             vutils.save_image(real_cpu,
                     '%s/real_samples.png' % opt.outf,

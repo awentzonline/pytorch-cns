@@ -3,12 +3,12 @@ from distutils.core import setup
 from setuptools import find_packages
 
 setup(
-    name='pytorch-evonet',
+    name='pytorch-cns',
     version='0.0.1',
-    description='Evolve neural networks with PyTorch',
+    description='Compressed network search with PyTorch',
     author='Adam Wentz',
     author_email='adam@adamwentz.com',
-    url='https://github.com/awentzonline/pytorch-evonet',
+    url='https://github.com/awentzonline/pytorch-cns',
     packages=find_packages(),
     install_requires=[
         'numpy',

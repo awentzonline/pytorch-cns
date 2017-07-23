@@ -13,7 +13,7 @@ import torchvision.transforms as transforms
 import torchvision.utils as vutils
 from torch.autograd import Variable
 
-from evocns import Population
+from evocns import DCTCodec, IdentityCodec, Population
 
 
 parser = argparse.ArgumentParser()
@@ -36,7 +36,7 @@ parser.add_argument('--manualSeed', type=int, help='manual seed')
 parser.add_argument('--sigma', type=float, default=0.1, help='default=0.1')
 parser.add_argument('--population-size', type=int, default=5)
 parser.add_argument('--save-every', type=int, default=25, help='save every N iterations')
-
+parser.add_argument('--model-codec', default='identity')
 opt = parser.parse_args()
 print(opt)
 
@@ -77,6 +77,14 @@ elif opt.dataset == 'lsun':
                         ]))
 elif opt.dataset == 'cifar10':
     dataset = dset.CIFAR10(root=opt.dataroot, download=True,
+                           transform=transforms.Compose([
+                               transforms.Scale(opt.imageSize),
+                               transforms.ToTensor(),
+                               transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+                           ])
+    )
+elif opt.dataset == 'mnist':
+    dataset = dset.MNIST(root=opt.dataroot, download=True,
                            transform=transforms.Compose([
                                transforms.Scale(opt.imageSize),
                                transforms.ToTensor(),
@@ -207,8 +215,9 @@ if opt.cuda:
 fixed_noise = Variable(fixed_noise)
 
 # setup optimizer
-population_g = Population(generator_factory, opt.population_size, opt.cuda)
-population_d = Population(discriminator_factory, opt.population_size, opt.cuda)
+codec = dict(identity=IdentityCodec, dct=DCTCodec)[opt.model_codec]()
+population_g = Population(generator_factory, opt.population_size, codec, opt.cuda)
+population_d = Population(discriminator_factory, opt.population_size, codec, opt.cuda)
 
 for epoch in range(opt.niter):
     for i, data in enumerate(dataloader, 0):

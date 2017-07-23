@@ -9,11 +9,59 @@ from torch.autograd import Variable
 from torchvision import datasets, transforms
 
 
+class ModelCodec:
+    def encode(self, model):
+        code = []
+        for param in model.parameters():
+            subcode = param.data.view(-1).numpy()
+            subcode = self.encode_subcode(subcode)
+            code.append(subcode)
+        return code
+
+    def decode(self, codes, model):
+        for subcode, param in zip(codes, model.parameters()):
+            decoded = self.decode_subcode(subcode)
+            decoded = decoded.reshape(param.size())
+            param.data = torch.from_numpy(decoded)
+        return model
+
+    def encode_subcode(self, decoded):
+        raise 'Override encode_subcode'
+
+    def decode_subcode(self, encoded):
+        raise 'Override decode_subcode'
+
+    def decode_perturbed(self, codes, model, perturbations, model_i):
+        # TODO: rethink this to get rid of model_i param
+        for subcode, perturbation, param in zip(codes, perturbations, model.parameters()):
+            decoded = self.decode_subcode(subcode + perturbation[model_i])
+            decoded = decoded.reshape(param.size())
+            param.data = torch.from_numpy(decoded)
+        return model
+
+
+class IdentityCodec(ModelCodec):
+    def encode_subcode(self, decoded):
+        return decoded
+
+    def decode_subcode(self, encoded):
+        return encoded
+
+
+class DCTCodec(ModelCodec):
+    def encode_subcode(self, decoded):
+        return dct(decoded, norm='ortho')
+
+    def decode_subcode(self, encoded):
+        return idct(encoded, norm='ortho')
+
+
 class Population:
-    def __init__(self, model_factory, num_models, cuda):
+    def __init__(self, model_factory, num_models, codec, cuda):
         self.models = [model_factory() for _ in range(num_models)]
         self.num_models = num_models
-        self.parent_code = self.encode_model(self.models[0])  # initial code
+        self.codec = codec
+        self.parent_code = self.codec.encode(self.models[0])  # initial code
         self.cuda = cuda
 
     def evaluate(self, x, y, f_loss):
@@ -24,29 +72,10 @@ class Population:
             losses[i] = loss
         return losses
 
-    def encode_model(self, model):
-        code = []
-        for param in model.parameters():
-            subcode = dct(param.data.view(-1).numpy(), norm='ortho')
-            code.append(subcode)
-        return code
-
-    def decode_model(self, target_model, code):
-        for subcode, param in zip(code, target_model.parameters()):
-            decoded = idct(subcode, norm='ortho')
-            decoded = decoded.reshape(param.size())
-            param.data = torch.from_numpy(decoded)
-        if self.cuda:
-            target_model.cuda()
-        return target_model
-
     def perturb_children(self, perturbations):
         for model_i, model in enumerate(self.models):
             target_model = self.models[model_i]
-            for subcode, perturbation, param in zip(self.parent_code, perturbations, target_model.parameters()):
-                decoded = idct(subcode + perturbation[model_i], norm='ortho')
-                decoded = decoded.reshape(param.size())
-                param.data = torch.from_numpy(decoded)
+            self.codec.decode_perturbed(self.parent_code, target_model, perturbations, model_i)
         if self.cuda:
             self.cuda_all()
 
@@ -81,7 +110,9 @@ class Population:
 
     def parent_model(self):
         model = self.models[0]  # hacktown
-        self.decode_model(model, self.parent_code)
+        self.codec.decode(self.parent_code, model)
+        if self.cuda:
+            model.cuda()
         return model
 
     def cuda_all(self):

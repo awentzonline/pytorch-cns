@@ -49,7 +49,7 @@ class Population:
 
     def combine_perturbations(self, perturbations, weights):
         out = []
-        weights = (weights - np.mean(weights)) / np.std(weights)
+        weights = (weights - np.mean(weights)) / (1E-7 + np.std(weights))
         for p in perturbations:
             combined = np.dot(p.T, weights)
             out.append(combined)

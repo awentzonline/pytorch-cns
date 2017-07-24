@@ -68,17 +68,61 @@ class Genome:
         self.genes = left + right
 
 
+class ModelGenome:
+    def __init__(self, model):
+        self.genomes = []
+        self._tmp_storages = []
+        for parameter in model.parameters():
+            num_weights = np.prod(parameter.size())
+            genome = Genome(num_weights)
+            self.genomes.append(genome)
+            self._tmp_storages.append(np.zeros(num_weights, dtype=np.float32))
+
+    def randomize(self, min_genes, max_genes, sigma_value):
+        for genome in self.genomes:
+            genome.randomize(min_genes, max_genes, sigma_value)
+
+    def decode(self, target_model):
+        for parameter, genome, _tmp in zip(target_model.parameters(), self.genomes, self._tmp_storages):
+            genome.decode(_tmp)
+            parameter.data = torch.from_numpy(_tmp.reshape(parameter.size()))
+
+    def mutate(self, p_index=0.1, p_value=0.8, sigma_value=1.0):
+        for genome in self.genomes:
+            genome.mutate(p_index=p_index, p_value=p_value, sigma_value=sigma_value)
+
+    def split(self):
+        lefts = []
+        rights = []
+        for genome in self.genomes:
+            left, right = genome.split()
+            lefts.append(left)
+            rights.append(right)
+        return lefts, rights
+
+    def child(self, a, b):
+        for genome, genome_a, genome_b in zip(self.genomes, a.genomes, b.genomes):
+            left_a, right_a = genome_a.split()
+            left_b, right_b = genome_b.split()
+            if np.random.uniform() > 0.5:
+                left = left_a
+            else:
+                left = left_b
+            if np.random.uniform() > 0.5:
+                right = right_a
+            else:
+                right = right_b
+            genome.genes = left + right
+
+
 class Population:
     def __init__(self, model_factory, num_models, cuda):
         self.model_factory = model_factory
         self.model = model_factory()
         if cuda:
             self.model.cuda()
-        self.num_weights = np.sum(np.prod(p.size()) for p in self.model.parameters())
-        self._tmp_weights = np.zeros(self.num_weights).astype(np.float32)
-        print(self.num_weights)
         self.num_models = num_models
-        self.genomes = [Genome(self.num_weights) for _ in range(num_models)]
+        self.genomes = [ModelGenome(self.model) for _ in range(num_models)]
         for genome in self.genomes:
             genome.randomize(15, 30, 10.)
         self.best_genome = self.genomes[0]
@@ -95,15 +139,7 @@ class Population:
         return losses
 
     def decode_genome(self, genome, model):
-        genome.decode(self._tmp_weights)
-        last_i = 0
-        for parameter in model.parameters():
-            p_size = parameter.size()
-            this_size = np.prod(p_size)
-            parameter.data = torch.from_numpy(
-                self._tmp_weights[last_i:last_i + this_size].reshape(p_size)
-            )
-            last_i += this_size
+        genome.decode(model)
         if self.cuda:
             model.cuda()
 

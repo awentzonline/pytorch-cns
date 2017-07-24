@@ -25,8 +25,8 @@ parser.add_argument('--workers', type=int, help='number of data loading workers'
 parser.add_argument('--batchSize', type=int, default=64, help='input batch size')
 parser.add_argument('--imageSize', type=int, default=64, help='the height / width of the input image to network')
 parser.add_argument('--nz', type=int, default=100, help='size of the latent z vector')
-parser.add_argument('--ngf', type=int, default=64)
-parser.add_argument('--ndf', type=int, default=64)
+parser.add_argument('--ngf', type=int, default=32)
+parser.add_argument('--ndf', type=int, default=32)
 parser.add_argument('--niter', type=int, default=25, help='number of epochs to train for')
 parser.add_argument('--learning_rate', type=float, default=0.001, help='learning rate, default=0.0002')
 parser.add_argument('--cuda', action='store_true', help='enables cuda')
@@ -238,15 +238,15 @@ for epoch in range(opt.niter):
         # train with fake
         noise.resize_(batch_size, nz, 1, 1).normal_(0, 1)
         noisev = Variable(noise)
-        netG = population_g.model
+        netG = population_g.best_model()
         fake = netG(noisev)
         labelv = Variable(label.fill_(fake_label))
-        losses_d = population_d.generation(inputv, labelv, criterion)
+        losses_d = population_d.generation(fake, labelv, criterion)
         ############################
         # (2) Update G network: maximize log(D(G(z)))
         ###########################
         labelv = Variable(label.fill_(real_label))  # fake labels are real for generator cost
-        netD = population_d.model
+        netD = population_d.best_model()
         def g_loss(y_pred, y):
             return criterion(netD(y_pred), y)
         losses_g = population_g.generation(noisev, labelv, g_loss)

@@ -49,7 +49,7 @@ class Genome:
                 gene.value += np.random.normal(0., sigma_value)
 
     def split(self):
-        p = np.random.randint(1, len(self.genes) - 1)
+        p = len(self.genes) // 2
         left = [g.clone() for g in self.genes[:p]]
         right = [g.clone() for g in self.genes[p:]]
         return left, right
@@ -81,6 +81,7 @@ class Population:
         self.genomes = [Genome(self.num_weights) for _ in range(num_models)]
         for genome in self.genomes:
             genome.randomize(15, 30, 10.)
+        self.best_genome = self.genomes[0]
         self.cuda = cuda
 
     def evaluate(self, x, y, f_loss):
@@ -111,8 +112,13 @@ class Population:
         ordered_losses = sorted([(loss, i) for i, loss in enumerate(losses)])
         num_best = len(ordered_losses) // 2
         ordered_genomes = [self.genomes[i] for _, i in ordered_losses]
+        self.best_genome = ordered_genomes[0]
         for genome in ordered_genomes[num_best:]:
             a, b = random.sample(ordered_genomes[:num_best], 2)
             genome.child(a, b)
             genome.mutate()
         return losses
+
+    def best_model(self):
+        self.decode_genome(self.best_genome, self.model)
+        return self.model

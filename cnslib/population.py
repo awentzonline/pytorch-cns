@@ -27,11 +27,11 @@ class Genome:
         self.max_index = max_index
         self.genes = []
 
-    def randomize(self, min_genes, max_genes, sigma_value):
+    def randomize(self, min_genes, max_genes, max_index, sigma_value):
         self.genes = []
         num_genes = np.random.randint(min_genes, max_genes)
         for i in range(0, num_genes):
-            gene = Gene(np.random.randint(0, self.max_index), np.random.normal(0, sigma_value))
+            gene = Gene(np.random.randint(0, max_index), np.random.uniform(-sigma_value, sigma_value))
             self.genes.append(gene)
 
     def decode(self, target):
@@ -54,10 +54,10 @@ class Genome:
             out = out.reshape(original_shape)
         return out
 
-    def mutate(self, p_index=0.1, p_value=0.8, sigma_value=1.0):
+    def mutate(self, p_index=0.1, p_value=0.8, sigma_value=5.0):
         for gene in self.genes:
             if np.random.uniform() < p_index:
-                gene.index += np.random.randint(-1, 1)
+                gene.index += np.random.randint(-1, 2)
                 gene.index = np.clip(gene.index, 0, self.max_index)
             if np.random.uniform() < p_value:
                 gene.value += np.random.normal(0., sigma_value)
@@ -94,14 +94,14 @@ class ModelGenome:
 
     def randomize(self, min_genes, max_genes, sigma_value):
         for genome in self.genomes:
-            genome.randomize(min_genes, max_genes, sigma_value)
+            genome.randomize(min_genes, max_genes, genome.max_index // 2, sigma_value)
 
     def decode(self, target_model):
         for parameter, genome, _tmp in zip(target_model.parameters(), self.genomes, self._tmp_storages):
             _tmp = genome.decode(_tmp)
-            parameter.data = torch.from_numpy(_tmp)#.reshape(parameter.size()))
+            parameter.data = torch.from_numpy(_tmp)
 
-    def mutate(self, p_index=0.1, p_value=0.8, sigma_value=1.0):
+    def mutate(self, p_index=0.1, p_value=0.8, sigma_value=5.0):
         for genome in self.genomes:
             genome.mutate(p_index=p_index, p_value=p_value, sigma_value=sigma_value)
 
@@ -138,7 +138,7 @@ class Population:
         self.num_models = num_models
         self.genomes = [ModelGenome(self.model) for _ in range(num_models)]
         for genome in self.genomes:
-            genome.randomize(15, 30, 10.)
+            genome.randomize(10, 20, 1.)
         self.best_genome = self.genomes[0]
         self.cuda = cuda
 

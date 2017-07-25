@@ -36,9 +36,23 @@ class Genome:
 
     def decode(self, target):
         target.fill(0.)
+        original_shape = target.shape
+        target = target.flatten()
         for gene in self.genes:
             target[gene.index] = gene.value
-        idct(target, norm='ortho', overwrite_x=True)
+        target = target.reshape(original_shape)
+        len_shape = len(original_shape)
+        kwargs = dict(norm='ortho', overwrite_x=True)
+        if len_shape == 1:
+            out = idct(target, **kwargs)
+        elif len_shape == 2:
+            out = idct(idct(target.T, **kwargs).T, **kwargs)
+        elif len_shape >= 3:
+            shape = (np.prod(original_shape[:-1]), original_shape[-1])
+            target = target.reshape(shape)
+            out = idct(idct(target.T, **kwargs).T, **kwargs)
+            out = out.reshape(original_shape)
+        return out
 
     def mutate(self, p_index=0.1, p_value=0.8, sigma_value=1.0):
         for gene in self.genes:
@@ -76,7 +90,7 @@ class ModelGenome:
             num_weights = np.prod(parameter.size())
             genome = Genome(num_weights)
             self.genomes.append(genome)
-            self._tmp_storages.append(np.zeros(num_weights, dtype=np.float32))
+            self._tmp_storages.append(np.zeros(parameter.size(), dtype=np.float32))
 
     def randomize(self, min_genes, max_genes, sigma_value):
         for genome in self.genomes:
@@ -84,8 +98,8 @@ class ModelGenome:
 
     def decode(self, target_model):
         for parameter, genome, _tmp in zip(target_model.parameters(), self.genomes, self._tmp_storages):
-            genome.decode(_tmp)
-            parameter.data = torch.from_numpy(_tmp.reshape(parameter.size()))
+            _tmp = genome.decode(_tmp)
+            parameter.data = torch.from_numpy(_tmp)#.reshape(parameter.size()))
 
     def mutate(self, p_index=0.1, p_value=0.8, sigma_value=1.0):
         for genome in self.genomes:

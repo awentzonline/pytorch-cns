@@ -64,6 +64,7 @@ ngpu = int(opt.ngpu)
 nz = int(opt.nz)
 ngf = int(opt.ngf)
 ndf = int(opt.ndf)
+nc = 3
 
 if opt.dataset in ['imagenet', 'folder', 'lfw']:
     # folder dataset

@@ -8,4 +8,5 @@ Examples
  * Download this repo
  * `pip install .` inside repo
 
-`evodcgan.py`: DCGAN adapted from the PyTorch DCGAN example.
+`cnsdcgan.py`: DCGAN adapted from the PyTorch DCGAN example. Trains both
+the discriminator and generator with compressed network search.

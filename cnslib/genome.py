@@ -1,6 +1,8 @@
+import base64
 import operator
 import pickle
 import random
+import zlib
 
 import numpy as np
 import torch
@@ -130,7 +132,12 @@ class ModelGenome:
             genome.genes = left + right
 
     def serialize_genomes(self):
-        return pickle.dumps(self.genomes)
+        d = pickle.dumps(self.genomes)
+        d = zlib.compress(d)
+        d = base64.b64encode(d)
+        return d
 
     def deserialize_genomes(self, data):
-        self.genomes = pickle.loads(data)
+        g = base64.b64decode(data)
+        g = zlib.decompress(g)
+        self.genomes = pickle.loads(g)

@@ -24,5 +24,8 @@ Examples
  * Download this repo
  * `pip install .` inside repo
 
-`cnsdcgan.py`: DCGAN adapted from the PyTorch DCGAN example. Trains both
-the discriminator and generator with compressed network search.
+`cnsdcgan.py`: DCGAN adapted from the PyTorch DCGAN example. Attempts to train
+both the discriminator and generator with compressed network search.
+
+`aigym.py`: Evolve a group of agents to solve OpenAI Gym environments. Requires
+redis for storing the genepool.

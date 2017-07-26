@@ -27,11 +27,11 @@ class Genome:
         self.max_index = max_index
         self.genes = []
 
-    def randomize(self, min_genes, max_genes, max_index, sigma_value):
+    def randomize(self, min_genes, max_genes, max_index, value_range):
         self.genes = []
         num_genes = np.random.randint(min_genes, max_genes)
-        for i in range(0, num_genes):
-            gene = Gene(np.random.randint(0, max_index), np.random.uniform(-sigma_value, sigma_value))
+        for i in range(num_genes):
+            gene = Gene(np.random.randint(0, max_index), np.random.uniform(*value_range))
             self.genes.append(gene)
 
     def decode(self, target):
@@ -54,13 +54,13 @@ class Genome:
             out = out.reshape(original_shape)
         return out
 
-    def mutate(self, p_index=0.1, p_value=0.8, sigma_value=5.0):
+    def mutate(self, p_index=0.1, p_value=0.8, value_range=(-5., 5.)):
         for gene in self.genes:
             if np.random.uniform() < p_index:
                 gene.index += np.random.randint(-1, 2)
-                gene.index = np.clip(gene.index, 0, self.max_index)
+                gene.index = np.clip(gene.index, 0, self.max_index - 1)
             if np.random.uniform() < p_value:
-                gene.value += np.random.normal(0., sigma_value)
+                gene.value += np.random.uniform(*value_range)
 
     def split(self):
         p = len(self.genes) // 2
@@ -92,18 +92,18 @@ class ModelGenome:
             self.genomes.append(genome)
             self._tmp_storages.append(np.zeros(parameter.size(), dtype=np.float32))
 
-    def randomize(self, min_genes, max_genes, sigma_value):
+    def randomize(self, min_genes, max_genes, value_range):
         for genome in self.genomes:
-            genome.randomize(min_genes, max_genes, genome.max_index // 2, sigma_value)
+            genome.randomize(min_genes, max_genes, genome.max_index // 2, value_range)
 
     def decode(self, target_model):
         for parameter, genome, _tmp in zip(target_model.parameters(), self.genomes, self._tmp_storages):
             _tmp = genome.decode(_tmp)
             parameter.data = torch.from_numpy(_tmp)
 
-    def mutate(self, p_index=0.1, p_value=0.8, sigma_value=5.0):
+    def mutate(self, p_index=0.1, p_value=0.8, value_range=(-5., 5.)):
         for genome in self.genomes:
-            genome.mutate(p_index=p_index, p_value=p_value, sigma_value=sigma_value)
+            genome.mutate(p_index=p_index, p_value=p_value, value_range=value_range)
 
     def split(self):
         lefts = []

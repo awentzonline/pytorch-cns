@@ -21,7 +21,7 @@ class Population:
         self.num_models = num_models
         self.genomes = [ModelGenome(self.model) for _ in range(num_models)]
         for genome in self.genomes:
-            genome.randomize(10, 20, 1.)
+            genome.randomize(10, 20, (-1., 1.))
         self.best_genome = self.genomes[0]
         self.cuda = cuda
 

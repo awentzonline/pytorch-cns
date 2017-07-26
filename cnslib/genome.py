@@ -1,4 +1,5 @@
 import operator
+import pickle
 import random
 
 import numpy as np
@@ -127,6 +128,12 @@ class ModelGenome:
             else:
                 right = right_b
             genome.genes = left + right
+
+    def serialize_genomes(self):
+        return pickle.dumps(self.genomes)
+
+    def deserialize_genomes(self, data):
+        self.genomes = pickle.loads(data)
 
 
 class Population:

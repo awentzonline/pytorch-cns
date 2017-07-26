@@ -1,8 +1,5 @@
-import base64
-import pickle
 import random
 import time
-import zlib
 
 import gym
 import numpy as np

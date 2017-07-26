@@ -47,7 +47,7 @@ class Agent:
         return ps
 
     def randomize(self, config):
-        self.genome.randomize(5, 20, (-20., 20.))
+        self.genome.randomize(5, 20, (-1., 1.))
 
     def crossover(self, best_genomes):
         parents = random.sample(best_genomes, 2)
@@ -57,7 +57,7 @@ class Agent:
         self.genome.child(self.genome_a, self.genome_b)
 
     def mutate(self):
-        self.genome.mutate()
+        self.genome.mutate(value_range=(-1., 1.))
 
     def update_model(self):
         self.genome.decode(self.model)

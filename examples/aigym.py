@@ -71,7 +71,7 @@ class MLP(nn.Module):
         super(MLP, self).__init__()
         self.main = nn.Sequential(
             nn.Linear(num_input, num_hidden),
-            nn.ReLU(),
+            nn.Sigmoid(),
             nn.Linear(num_hidden, num_actions),
             nn.Softmax()
         )

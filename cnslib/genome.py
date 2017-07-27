@@ -76,12 +76,10 @@ class Genome:
         left_b, right_b = b.split()
         if np.random.uniform() < 0.5:
             left = left_a
+            right = right_b
         else:
             left = left_b
-        if np.random.uniform() < 0.5:
             right = right_a
-        else:
-            right = right_b
         self.genes = left + right
 
 

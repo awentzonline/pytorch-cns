@@ -47,7 +47,7 @@ class Agent:
         return ps
 
     def randomize(self, config):
-        self.genome.randomize(config.min_genes, config.max_genes, config.v_change)
+        self.genome.randomize(config.min_genes, config.max_genes, config.v_init)
 
     def crossover(self, best_genomes):
         parents = random.sample(best_genomes, 2)
@@ -157,6 +157,7 @@ if __name__ == '__main__':
     argparser.add_argument('--max-genes', type=int, default=20)
     argparser.add_argument('--min-genes', type=int, default=10)
     argparser.add_argument('--v-change', type=list_of(float), default=(-1., 1.))
-    argparser.add_argument('--num-hidden', type=int, default=32)
+    argparser.add_argument('--v-init', type=list_of(float), default=(-10., 10.))
+    argparser.add_argument('--num-hidden', type=int, default=16)
     config = argparser.parse_args()
     main(config)

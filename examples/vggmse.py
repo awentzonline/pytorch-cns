@@ -195,7 +195,7 @@ def main(config):
 
 
 def update_agent(agent, reward, genepool, config):
-    best_genomes = genepool.top_n(config.min_genepool)
+    best_genomes = genepool.top_n(config.min_genepool, reverse=True)
     if len(best_genomes) < config.min_genepool:
         genepool.report_score(agent.genome, reward)  # we're still gathering scores
     else:
@@ -247,28 +247,6 @@ def run_generator_episode(agent_g, vgg_features, dataloader, config):
                     normalize=True)
     return np.sum(losses)
 #
-#
-# def run_generator_episode(agent_g, vgg_features, dataloader, config):
-#     global noisev, fixed_noise  # mutating from pytorch example
-#     data_iter = iter(dataloader)
-#     losses = []
-#     for i in range(config.episode_batches):
-#         labelv = Variable(label.fill_(real_label))  # fake labels are real for generator cost
-#         loss = c
-#         losses.append(criterion(agent_g(noisev), labelv).data[0])
-#         print('[{}/{}][{}/{}]: {} {} / G: {} {}'.format(
-#             '?', opt.niter, i, len(dataloader),
-#             np.min(losses), np.max(losses), np.min(losses), np.max(losses)))
-#         if config.save_every < np.random.uniform() and config.render:
-#             # vutils.save_image(real_cpu,
-#             #         '{}/real_samples.png'.format(opt.outf),
-#             #         normalize=True)
-#             fake = agent_g(fixed_noise)
-#             vutils.save_image(fake.data,
-#                     '{}/fake_samples_epoch_.png'.format(opt.outf,),
-#                     normalize=True)
-#     return np.sum(losses)
-
 
 if __name__ == '__main__':
     main(opt)

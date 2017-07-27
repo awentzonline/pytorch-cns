@@ -12,8 +12,12 @@ class GenePool:
         data = genome.serialize_genomes()
         self.redis.zadd(self.key, score, data)
 
-    def top_n(self, n):
-        results = self.redis.zrevrange(self.key, 0, n - 1, withscores=True)
+    def top_n(self, n, reverse=True):
+        if reverse:
+            f = self.redis.zrevrange
+        else:
+            f = self.redis.zrange
+        results = f(self.key, 0, n - 1, withscores=True)
         return results
 
     def clear(self):

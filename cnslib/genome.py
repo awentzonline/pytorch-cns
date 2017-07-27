@@ -74,11 +74,11 @@ class Genome:
     def child(self, a, b):
         left_a, right_a = a.split()
         left_b, right_b = b.split()
-        if np.random.uniform() > 0.5:
+        if np.random.uniform() < 0.5:
             left = left_a
         else:
             left = left_b
-        if np.random.uniform() > 0.5:
+        if np.random.uniform() < 0.5:
             right = right_a
         else:
             right = right_b

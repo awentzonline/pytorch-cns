@@ -14,6 +14,9 @@ class Agent:
         self.genome_a = ModelGenome(model)
         self.genome_b = ModelGenome(model)
 
+    def __call__(self, x):
+        return self.model(x)
+
     def policy(self, state):
         state = state[None, ...].astype(np.float32)
         state = torch.from_numpy(state)

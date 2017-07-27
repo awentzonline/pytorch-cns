@@ -10,6 +10,7 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 
 from cnslib.agent import Agent
+from cnslib.argtypes import list_of
 from cnslib.genepool import GenePool
 from cnslib.genome import ModelGenome
 
@@ -83,15 +84,6 @@ def run_episode(agent, environment, config):
         total_reward += reward
         num_steps += 1
     return total_reward, num_steps
-
-
-def list_of(type_):
-    def f(s):
-        try:
-            return map(type_, s.split(','))
-        except:
-            raise argparse.ArgumentTypeError('Must be a list of {}'.format(type_))
-    return f
 
 
 if __name__ == '__main__':

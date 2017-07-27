@@ -15,7 +15,10 @@ import torchvision.transforms as transforms
 import torchvision.utils as vutils
 from torch.autograd import Variable
 
-from cnslib.population import Population
+from cnslib.agent import Agent
+from cnslib.argtypes import list_of
+from cnslib.genepool import GenePool
+from cnslib.genome import ModelGenome
 
 
 parser = argparse.ArgumentParser()
@@ -37,8 +40,15 @@ parser.add_argument('--outf', default='.', help='folder to output images and mod
 parser.add_argument('--manualSeed', type=int, help='manual seed')
 parser.add_argument('--sigma', type=float, default=0.1, help='default=0.1')
 parser.add_argument('--population-size', type=int, default=5)
-parser.add_argument('--save-every', type=int, default=25, help='save every N iterations')
-parser.add_argument('--model-codec', default='identity')
+parser.add_argument('--save-every', type=float, default=0.1, help='probability of saving samples')
+parser.add_argument('--episode-batches', type=int, default=5)
+parser.add_argument('--max-genes', type=int, default=20)
+parser.add_argument('--min-genes', type=int, default=10)
+parser.add_argument('--v-change', type=list_of(float), default=(-1., 1.))
+parser.add_argument('--v-init', type=list_of(float), default=(-10., 10.))
+parser.add_argument('--min-genepool', type=int, default=10)
+parser.add_argument('--clear-store', action='store_true')
+parser.add_argument('--render', action='store_true')
 opt = parser.parse_args()
 print(opt)
 
@@ -114,9 +124,9 @@ def weights_init(m):
         m.bias.data.fill_(0)
 
 
-class _netG(nn.Module):
+class NetG(nn.Module):
     def __init__(self, ngpu):
-        super(_netG, self).__init__()
+        super(NetG, self).__init__()
         self.ngpu = ngpu
         self.main = nn.Sequential(
             # input is Z, going into a convolution
@@ -148,19 +158,16 @@ class _netG(nn.Module):
             output = self.main(input)
         return output
 
-
-def generator_factory():
-    netG = _netG(ngpu)
-    netG.apply(weights_init)
-    if opt.netG != '':
-        netG.load_state_dict(torch.load(opt.netG))
-    print(netG)
-    return netG
+netG = NetG(ngpu)
+netG.apply(weights_init)
+if opt.netG != '':
+    netG.load_state_dict(torch.load(opt.netG))
+print(netG)
 
 
-class _netD(nn.Module):
+class NetD(nn.Module):
     def __init__(self, ngpu):
-        super(_netD, self).__init__()
+        super(NetD, self).__init__()
         self.ngpu = ngpu
         self.main = nn.Sequential(
             # input is (nc) x 64 x 64
@@ -191,14 +198,11 @@ class _netD(nn.Module):
 
         return output.view(-1, 1)
 
-
-def discriminator_factory():
-    netD = _netD(ngpu)
-    netD.apply(weights_init)
-    if opt.netD != '':
-        netD.load_state_dict(torch.load(opt.netD))
-    print(netD)
-    return netD
+netD = NetD(ngpu)
+netD.apply(weights_init)
+if opt.netD != '':
+    netD.load_state_dict(torch.load(opt.netD))
+print(netD)
 
 criterion = nn.BCELoss()
 
@@ -216,53 +220,93 @@ if opt.cuda:
 
 fixed_noise = Variable(fixed_noise)
 
-# setup optimizer
-population_g = Population(generator_factory, opt.population_size, opt.cuda)
-population_d = Population(discriminator_factory, opt.population_size, opt.cuda)
+def main(config):
+    agent_d = Agent(netD)
+    agent_g = Agent(netG)
+    for agent in (agent_d, agent_g):
+        agent.randomize(config.min_genes, config.max_genes, config.v_init)
+    genepool_d = GenePool(key='d_genes')
+    genepool_g = GenePool(key='g_genes')
+    if config.clear_store:
+        genepool_d.clear()
+        genepool_g.clear()
+    num_episodes = 0
+    while True:
+        print('Starting discriminator episode')
+        reward = run_discriminator_episode(agent_d, agent_g, dataloader, config)
+        print('Reward {}'.format(reward,))
+        update_agent(agent_d, reward, genepool_d, config)
+        print('Starting generator episode')
+        reward = run_generator_episode(agent_d, agent_g, dataloader, config)
+        print('Reward {}'.format(reward,))
+        update_agent(agent_g, reward, genepool_g, config)
 
-for epoch in range(opt.niter):
-    for i, data in enumerate(dataloader, 0):
-        ############################
-        # (1) Update D network: maximize log(D(x)) + log(1 - D(G(z)))
-        ###########################
-        # train with real
+        num_episodes += 1
+
+
+def update_agent(agent, reward, genepool, config):
+    best_genomes = genepool.top_n(config.min_genepool)
+    if len(best_genomes) < config.min_genepool:
+        genepool.report_score(agent.genome, reward)  # we're still gathering scores
+    else:
+        _, best_score = best_genomes[0]
+        _, worst_best_score = best_genomes[-1]
+        print('Genepool top: {}, {}'.format(best_score, worst_best_score))
+        if reward > worst_best_score:
+            # Our score isn't notable
+            agent.crossover(best_genomes)
+        else:
+            # New low-ish score
+            print('new ok score')
+            genepool.report_score(agent.genome, reward)
+    agent.mutate()
+    agent.update_model()
+
+
+def run_discriminator_episode(agent_d, agent_g, dataloader, config):
+    global noisev, fixed_noise  # mutating from pytorch example
+    data_iter = iter(dataloader)
+    losses = []
+    for i in range(config.episode_batches):
+        data = next(data_iter)
         real_cpu, _ = data
         batch_size = real_cpu.size(0)
-        if opt.cuda:
+        if config.cuda:
             real_cpu = real_cpu.cuda()
         input.resize_as_(real_cpu).copy_(real_cpu)
         label.resize_(batch_size).fill_(real_label)
         inputv = Variable(input)
         labelv = Variable(label)
-
-        losses_d = population_d.generation(inputv, labelv, criterion)
+        losses.append(criterion(agent_d(inputv), labelv).data[0])
         # train with fake
         noise.resize_(batch_size, nz, 1, 1).normal_(0, 1)
         noisev = Variable(noise)
-        netG = population_g.best_model()
-        fake = netG(noisev)
+        fake = agent_g(noisev)
         labelv = Variable(label.fill_(fake_label))
-        losses_d = population_d.generation(fake, labelv, criterion)
-        ############################
-        # (2) Update G network: maximize log(D(G(z)))
-        ###########################
-        labelv = Variable(label.fill_(real_label))  # fake labels are real for generator cost
-        netD = population_d.best_model()
-        def g_loss(y_pred, y):
-            return criterion(netD(y_pred), y)
-        losses_g = population_g.generation(noisev, labelv, g_loss)
-        print('[{}/{}][{}/{}]: {} {} / G: {} {}'.format(
-            epoch, opt.niter, i, len(dataloader),
-            np.min(losses_d), np.max(losses_d), np.min(losses_g), np.max(losses_g)))
-        if i % opt.save_every == 0:
-            vutils.save_image(real_cpu,
-                    '%s/real_samples.png' % opt.outf,
-                    normalize=True)
-            fake = netG(fixed_noise)
-            vutils.save_image(fake.data,
-                    '%s/fake_samples_epoch_%03d.png' % (opt.outf, epoch),
-                    normalize=True)
+        losses.append(criterion(agent_d(fake), labelv).data[0])
+    return np.sum(losses)
 
-    # do checkpointing
-    torch.save(netG.state_dict(), '%s/netG_epoch_%d.pth' % (opt.outf, epoch))
-    torch.save(netD.state_dict(), '%s/netD_epoch_%d.pth' % (opt.outf, epoch))
+
+def run_generator_episode(agent_d, agent_g, dataloader, config):
+    global noisev, fixed_noise  # mutating from pytorch example
+    data_iter = iter(dataloader)
+    losses = []
+    for i in range(config.episode_batches):
+        labelv = Variable(label.fill_(real_label))  # fake labels are real for generator cost
+        losses.append(criterion(agent_d(agent_g(noisev)), labelv).data[0])
+        print('[{}/{}][{}/{}]: {} {} / G: {} {}'.format(
+            '?', opt.niter, i, len(dataloader),
+            np.min(losses), np.max(losses), np.min(losses), np.max(losses)))
+        if config.save_every < np.random.uniform() and config.render:
+            # vutils.save_image(real_cpu,
+            #         '{}/real_samples.png'.format(opt.outf),
+            #         normalize=True)
+            fake = agent_g(fixed_noise)
+            vutils.save_image(fake.data,
+                    '{}/fake_samples_epoch_.png'.format(opt.outf,),
+                    normalize=True)
+    return np.sum(losses)
+
+
+if __name__ == '__main__':
+    main(opt)

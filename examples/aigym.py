@@ -9,61 +9,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 
+from cnslib.agent import Agent
+from cnslib.genepool import GenePool
 from cnslib.genome import ModelGenome
-
-
-class Genepool:
-    def __init__(self, key='genescores', redis_params=None):
-        self.key = key
-        if redis_params is None:
-            redis_params = dict(host='localhost')
-        self.redis = redis.StrictRedis(**redis_params)
-
-    def report_score(self, genome, score):
-        data = genome.serialize_genomes()
-        self.redis.zadd(self.key, score, data)
-
-    def top_n(self, n):
-        results = self.redis.zrevrange(self.key, 0, n - 1, withscores=True)
-        return results
-
-    def clear(self):
-        self.redis.delete(self.key)
-
-
-class Agent:
-    def __init__(self, model):
-        self.model = model
-        self.genome = ModelGenome(model)
-        self.genome_a = ModelGenome(model)
-        self.genome_b = ModelGenome(model)
-
-    def policy(self, state):
-        state = state[None, ...].astype(np.float32)
-        state = torch.from_numpy(state)
-        inputv = Variable(state)
-        ps = self.model(inputv).data.numpy()
-        ps = np.argmax(ps)
-        return ps
-
-    def randomize(self, config):
-        self.genome.randomize(config.min_genes, config.max_genes, config.v_init)
-
-    def crossover(self, best_genomes):
-        parents = random.sample(best_genomes, 2)
-        best_genomes = [genome for genome, _ in best_genomes]
-        self.genome_a.deserialize_genomes(best_genomes[0])
-        self.genome_b.deserialize_genomes(best_genomes[1])
-        self.genome.child(self.genome_a, self.genome_b)
-
-    def mutate(self):
-        self.genome.mutate(value_range=(-1., 1.))
-
-    def update_model(self):
-        self.genome.decode(self.model)
-
-    def load_genome(self, genome):
-        self.genome.deserialize_genomes(genome)
 
 
 class MLP(nn.Module):
@@ -87,8 +35,8 @@ def main(config):
     num_actions = environment.action_space.n
     model = MLP(state_shape[0], num_hidden, num_actions)
     agent = Agent(model)
-    agent.randomize(config)
-    genepool = Genepool()
+    agent.randomize(config.min_genes, config.max_genes, config.v_init)
+    genepool = GenePool()
     if config.clear_store:
         genepool.clear()
     num_episodes = 0

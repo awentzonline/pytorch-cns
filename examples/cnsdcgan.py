@@ -245,7 +245,7 @@ def main(config):
 
 
 def update_agent(agent, reward, genepool, config):
-    best_genomes = genepool.top_n(config.min_genepool)
+    best_genomes = genepool.top_n(config.min_genepool, reverse=False)
     if len(best_genomes) < config.min_genepool:
         genepool.report_score(agent.genome, reward)  # we're still gathering scores
     else:

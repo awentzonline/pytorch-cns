@@ -47,7 +47,7 @@ class Agent:
         return ps
 
     def randomize(self, config):
-        self.genome.randomize(5, 20, (-1., 1.))
+        self.genome.randomize(config.min_genes, config.max_genes, config.v_change)
 
     def crossover(self, best_genomes):
         parents = random.sample(best_genomes, 2)
@@ -61,6 +61,9 @@ class Agent:
 
     def update_model(self):
         self.genome.decode(self.model)
+
+    def load_genome(self, genome):
+        self.genome.deserialize_genomes(genome)
 
 
 class MLP(nn.Module):
@@ -80,7 +83,7 @@ class MLP(nn.Module):
 def main(config):
     environment = gym.make(config.env)
     state_shape = environment.observation_space.low.shape
-    num_hidden = 32
+    num_hidden = config.num_hidden
     num_actions = environment.action_space.n
     model = MLP(state_shape[0], num_hidden, num_actions)
     agent = Agent(model)
@@ -88,18 +91,26 @@ def main(config):
     genepool = Genepool()
     if config.clear_store:
         genepool.clear()
+    num_episodes = 0
     while True:
         print('Starting episode')
         reward, steps = run_episode(agent, environment, config)
         print('Reward {} in {} steps'.format(reward, steps))
         best_genomes = genepool.top_n(config.min_genepool)
+        # show off genome
+        if num_episodes % 50 == 0 and config.render:
+            print('******** EXHIBITION ***********')
+            best_genome, _ = best_genomes[0]
+            agent.load_genome(best_genome)
+            run_episode(agent, environment, config)
+
         if len(best_genomes) < config.min_genepool:
             genepool.report_score(agent.genome, steps)  # we're still gathering scores
         else:
             _, best_score = best_genomes[0]
             _, worst_best_score = best_genomes[-1]
             print('Genepool top: {}, {}'.format(best_score, worst_best_score))
-            if reward < worst_best_score or np.random.uniform() < 0.1:
+            if reward < worst_best_score:
                 # Our score isn't notable
                 agent.crossover(best_genomes)
             else:
@@ -108,7 +119,7 @@ def main(config):
                 genepool.report_score(agent.genome, reward)
         agent.mutate()
         agent.update_model()
-        time.sleep(np.random.uniform())
+        num_episodes += 1
 
 
 def run_episode(agent, environment, config):
@@ -126,6 +137,15 @@ def run_episode(agent, environment, config):
     return total_reward, num_steps
 
 
+def list_of(type_):
+    def f(s):
+        try:
+            return map(type_, s.split(','))
+        except:
+            raise argparse.ArgumentTypeError('Must be a list of floats')
+    return f
+
+
 if __name__ == '__main__':
     import argparse
     argparser = argparse.ArgumentParser()
@@ -134,5 +154,9 @@ if __name__ == '__main__':
     argparser.add_argument('--min-genepool', type=int, default=10)
     argparser.add_argument('--render', action='store_true')
     argparser.add_argument('--clear-store', action='store_true')
+    argparser.add_argument('--max-genes', type=int, default=20)
+    argparser.add_argument('--min-genes', type=int, default=10)
+    argparser.add_argument('--v-change', type=list_of(float), default=(-1., 1.))
+    argparser.add_argument('--num-hidden', type=int, default=32)
     config = argparser.parse_args()
     main(config)

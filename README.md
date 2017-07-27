@@ -7,6 +7,8 @@ This creates a genome per layer, rather than a single one for the entire model a
 
 Usage
 -----
+Install with `pip install pytorch-cns`
+
 ```
 from cnslib.population import Population
 from yourcool.lib import Model
@@ -20,12 +22,8 @@ best_model = population.best_model()  # current best model
 ```
 Examples
 --------
-
- * Download this repo
- * `pip install .` inside repo
-
 `aigym.py`: Evolve a group of agents to solve OpenAI Gym environments. Requires
-redis for storing the genepool.
+redis for storing the gene pool.
 
 `cnsdcgan.py`: DCGAN adapted from the PyTorch DCGAN example. Attempts to train
 both the discriminator and generator with compressed network search.

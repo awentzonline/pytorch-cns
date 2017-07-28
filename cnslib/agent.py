@@ -35,8 +35,8 @@ class Agent:
         self.genome_b.deserialize_genomes(best_genomes[1])
         self.genome.child(self.genome_a, self.genome_b)
 
-    def mutate(self, value_sigma=1.):
-        self.genome.mutate(value_sigma=value_sigma)
+    def mutate(self, index_sigma=1., value_sigma=1.):
+        self.genome.mutate(index_sigma=index_sigma, value_sigma=value_sigma)
 
     def update_model(self):
         self.genome.decode(self.model)

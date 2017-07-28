@@ -68,7 +68,7 @@ def main(config):
                 # New high-ish score
                 print('new ok score')
                 genepool.report_score(agent.genome, reward)
-        agent.mutate(value_sigma=config.v_sigma)
+        agent.mutate(index_sigma=config.i_sigma, value_sigma=config.v_sigma)
         agent.update_model()
         num_episodes += 1
 
@@ -93,12 +93,13 @@ if __name__ == '__main__':
     argparser = argparse.ArgumentParser()
     argparser.add_argument('--env', default='CartPole-v0')
     argparser.add_argument('--num-agents', type=int, default=10)
-    argparser.add_argument('--min-genepool', type=int, default=5)
+    argparser.add_argument('--min-genepool', type=int, default=2)
     argparser.add_argument('--num-best', type=int, default=20)
     argparser.add_argument('--render', action='store_true')
     argparser.add_argument('--clear-store', action='store_true')
     argparser.add_argument('--gene-weight-ratio', type=float, default=0.05)
     argparser.add_argument('--freq-weight-ratio', type=float, default=1.)
+    argparser.add_argument('--i-sigma', type=float, default=1.)
     argparser.add_argument('--v-sigma', type=list_of(float), default=1.)
     argparser.add_argument('--v-init', type=list_of(float), default=(-1., 1.))
     argparser.add_argument('--num-hidden', type=int, default=32)

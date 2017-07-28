@@ -43,9 +43,10 @@ parser.add_argument('--save-every', type=float, default=0.1, help='probability o
 parser.add_argument('--episode-batches', type=int, default=1)
 parser.add_argument('--gene-weight-ratio', type=float, default=0.05)
 parser.add_argument('--freq-weight-ratio', type=float, default=1.)
+parser.add_argument('--i-sigma', type=float, default=1.)
 parser.add_argument('--v-sigma', type=float, default=1.)
 parser.add_argument('--v-init', type=list_of(float), default=(-10., 10.))
-parser.add_argument('--min-genepool', type=int, default=5)
+parser.add_argument('--min-genepool', type=int, default=2)
 parser.add_argument('--clear-store', action='store_true')
 parser.add_argument('--render', action='store_true')
 parser.add_argument('--num-best', type=int, default=20)
@@ -208,7 +209,7 @@ def update_agent(agent, reward, genepool, config):
             # New low-ish score
             print('new ok score')
             genepool.report_score(agent.genome, reward)
-    agent.mutate(value_sigma=config.v_sigma)
+    agent.mutate(index_sigma=config.i_sigma, value_sigma=config.v_sigma)
     agent.update_model()
 
 

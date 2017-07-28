@@ -20,7 +20,7 @@ class MLP(nn.Module):
         super(MLP, self).__init__()
         self.main = nn.Sequential(
             nn.Linear(num_input, num_hidden),
-            nn.Sigmoid(),
+            nn.ReLU(),
             nn.Linear(num_hidden, num_actions),
             nn.Softmax()
         )
@@ -36,25 +36,27 @@ def main(config):
     num_actions = environment.action_space.n
     model = MLP(state_shape[0], num_hidden, num_actions)
     agent = Agent(model)
-    agent.randomize(config.min_genes, config.max_genes, config.v_init)
+    agent.randomize(config.gene_weight_ratio, config.freq_weight_ratio, config.v_init)
+    print(agent.genome)
     genepool = GenePool()
     if config.clear_store:
         genepool.clear()
     num_episodes = 0
     while True:
-        print('Starting episode')
+        print('Starting episode {}'.format(num_episodes))
         reward, steps = run_episode(agent, environment, config)
         print('Reward {} in {} steps'.format(reward, steps))
-        best_genomes = genepool.top_n(config.min_genepool)
+        best_genomes = genepool.top_n(config.num_best)
         # show off genome
-        if num_episodes % 50 == 0 and config.render:
+        if (num_episodes + 1) % 50 == 0 and config.render:
             print('******** EXHIBITION ***********')
+            print(agent.genome)
             best_genome, _ = best_genomes[0]
             agent.load_genome(best_genome)
             run_episode(agent, environment, config)
 
         if len(best_genomes) < config.min_genepool:
-            genepool.report_score(agent.genome, steps)  # we're still gathering scores
+            genepool.report_score(agent.genome, reward)  # we're still gathering scores
         else:
             _, best_score = best_genomes[0]
             _, worst_best_score = best_genomes[-1]
@@ -91,13 +93,14 @@ if __name__ == '__main__':
     argparser = argparse.ArgumentParser()
     argparser.add_argument('--env', default='CartPole-v0')
     argparser.add_argument('--num-agents', type=int, default=10)
-    argparser.add_argument('--min-genepool', type=int, default=10)
+    argparser.add_argument('--min-genepool', type=int, default=5)
+    argparser.add_argument('--num-best', type=int, default=20)
     argparser.add_argument('--render', action='store_true')
     argparser.add_argument('--clear-store', action='store_true')
-    argparser.add_argument('--max-genes', type=int, default=20)
-    argparser.add_argument('--min-genes', type=int, default=10)
+    argparser.add_argument('--gene-weight-ratio', type=float, default=0.05)
+    argparser.add_argument('--freq-weight-ratio', type=float, default=1.)
     argparser.add_argument('--v-change', type=list_of(float), default=(-1., 1.))
-    argparser.add_argument('--v-init', type=list_of(float), default=(-10., 10.))
-    argparser.add_argument('--num-hidden', type=int, default=16)
+    argparser.add_argument('--v-init', type=list_of(float), default=(-1., 1.))
+    argparser.add_argument('--num-hidden', type=int, default=32)
     config = argparser.parse_args()
     main(config)

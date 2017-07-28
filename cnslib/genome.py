@@ -21,18 +21,22 @@ class Gene:
     def clone(self):
         return Gene(self.index, self.value)
 
+    def __str__(self):
+        return '<Gene i={} v={}>'.format(self.index, self.value)
+
 
 class Genome:
     '''Each gene is a tuple of the form (index, value) which represents
     a DCT coefficient.
     '''
-    def __init__(self, max_index):
-        self.max_index = max_index
+    def __init__(self, num_weights):
+        self.num_weights = num_weights
         self.genes = []
 
-    def randomize(self, min_genes, max_genes, max_index, value_range):
+    def randomize(self, gene_weight_ratio, max_index, value_range):
         self.genes = []
-        num_genes = np.random.randint(min_genes, max_genes)
+        num_genes = max(2, int(gene_weight_ratio * self.num_weights))
+        print(max_index, value_range)
         for i in range(num_genes):
             gene = Gene(np.random.randint(0, max_index), np.random.uniform(*value_range))
             self.genes.append(gene)
@@ -60,8 +64,8 @@ class Genome:
     def mutate(self, p_index=0.1, p_value=0.8, value_range=(-5., 5.)):
         for gene in self.genes:
             if np.random.uniform() < p_index:
-                gene.index += np.random.randint(-1, 2)
-                gene.index = np.clip(gene.index, 0, self.max_index - 1)
+                gene.index += np.random.randint(-2, 3)
+                gene.index = np.clip(gene.index, 0, self.num_weights - 1)
             if np.random.uniform() < p_value:
                 gene.value += np.random.uniform(*value_range)
 
@@ -82,6 +86,10 @@ class Genome:
             right = right_a
         self.genes = left + right
 
+    def __str__(self):
+        return '<Genome w={} {}>'.format(
+            self.num_weights, ', '.join(str(g) for g in self.genes))
+
 
 class ModelGenome:
     def __init__(self, model):
@@ -93,9 +101,10 @@ class ModelGenome:
             self.genomes.append(genome)
             self._tmp_storages.append(np.zeros(parameter.size(), dtype=np.float32))
 
-    def randomize(self, min_genes, max_genes, value_range):
+    def randomize(self, gene_weight_ratio, freq_weight_ratio, value_range):
         for genome in self.genomes:
-            genome.randomize(min_genes, max_genes, genome.max_index // 2, value_range)
+            genome.randomize(
+                gene_weight_ratio, max(1, int(genome.num_weights * freq_weight_ratio)), value_range)
 
     def decode(self, target_model):
         for parameter, genome, _tmp in zip(target_model.parameters(), self.genomes, self._tmp_storages):
@@ -121,12 +130,10 @@ class ModelGenome:
             left_b, right_b = genome_b.split()
             if np.random.uniform() > 0.5:
                 left = left_a
+                right = right_b
             else:
                 left = left_b
-            if np.random.uniform() > 0.5:
                 right = right_a
-            else:
-                right = right_b
             genome.genes = left + right
 
     def serialize_genomes(self):
@@ -139,3 +146,6 @@ class ModelGenome:
         g = base64.b64decode(data)
         g = zlib.decompress(g)
         self.genomes = pickle.loads(g)
+
+    def __str__(self):
+        return '<ModelGenome {}>'.format(', '.join(str(g) for g in self.genomes))

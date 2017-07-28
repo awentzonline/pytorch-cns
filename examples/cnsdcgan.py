@@ -38,17 +38,16 @@ parser.add_argument('--netG', default='', help="path to netG (to continue traini
 parser.add_argument('--netD', default='', help="path to netD (to continue training)")
 parser.add_argument('--outf', default='.', help='folder to output images and model checkpoints')
 parser.add_argument('--manualSeed', type=int, help='manual seed')
-parser.add_argument('--sigma', type=float, default=0.1, help='default=0.1')
-parser.add_argument('--population-size', type=int, default=5)
 parser.add_argument('--save-every', type=float, default=0.1, help='probability of saving samples')
-parser.add_argument('--episode-batches', type=int, default=5)
-parser.add_argument('--max-genes', type=int, default=20)
-parser.add_argument('--min-genes', type=int, default=10)
+parser.add_argument('--episode-batches', type=int, default=1)
+parser.add_argument('--gene-weight-ratio', type=float, default=0.05)
+parser.add_argument('--freq-weight-ratio', type=float, default=1.)
 parser.add_argument('--v-change', type=list_of(float), default=(-1., 1.))
-parser.add_argument('--v-init', type=list_of(float), default=(-10., 10.))
-parser.add_argument('--min-genepool', type=int, default=10)
+parser.add_argument('--v-init', type=list_of(float), default=(-1., 1.))
+parser.add_argument('--min-genepool', type=int, default=5)
 parser.add_argument('--clear-store', action='store_true')
 parser.add_argument('--render', action='store_true')
+parser.add_argument('--num-best', type=int, default=20)
 opt = parser.parse_args()
 print(opt)
 
@@ -224,7 +223,7 @@ def main(config):
     agent_d = Agent(netD)
     agent_g = Agent(netG)
     for agent in (agent_d, agent_g):
-        agent.randomize(config.min_genes, config.max_genes, config.v_init)
+        agent.randomize(config.gene_weight_ratio, config.freq_weight_ratio, config.v_init)
     genepool_d = GenePool(key='d_genes')
     genepool_g = GenePool(key='g_genes')
     if config.clear_store:
@@ -245,7 +244,7 @@ def main(config):
 
 
 def update_agent(agent, reward, genepool, config):
-    best_genomes = genepool.top_n(config.min_genepool, reverse=False)
+    best_genomes = genepool.top_n(config.num_best, reverse=False)
     if len(best_genomes) < config.min_genepool:
         genepool.report_score(agent.genome, reward)  # we're still gathering scores
     else:

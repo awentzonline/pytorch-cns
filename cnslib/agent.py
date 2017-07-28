@@ -25,8 +25,8 @@ class Agent:
         ps = np.argmax(ps)
         return ps
 
-    def randomize(self, min_genes, max_genes, init_value_range):
-        self.genome.randomize(min_genes, max_genes, init_value_range)
+    def randomize(self, gene_weight_ratio, freq_weight_ratio, init_value_range):
+        self.genome.randomize(gene_weight_ratio, freq_weight_ratio, init_value_range)
 
     def crossover(self, best_genomes):
         parents = random.sample(best_genomes, 2)

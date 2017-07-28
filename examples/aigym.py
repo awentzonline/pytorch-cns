@@ -68,7 +68,7 @@ def main(config):
                 # New high-ish score
                 print('new ok score')
                 genepool.report_score(agent.genome, reward)
-        agent.mutate()
+        agent.mutate(value_sigma=config.v_sigma)
         agent.update_model()
         num_episodes += 1
 
@@ -99,7 +99,7 @@ if __name__ == '__main__':
     argparser.add_argument('--clear-store', action='store_true')
     argparser.add_argument('--gene-weight-ratio', type=float, default=0.05)
     argparser.add_argument('--freq-weight-ratio', type=float, default=1.)
-    argparser.add_argument('--v-change', type=list_of(float), default=(-1., 1.))
+    argparser.add_argument('--v-sigma', type=list_of(float), default=1.)
     argparser.add_argument('--v-init', type=list_of(float), default=(-1., 1.))
     argparser.add_argument('--num-hidden', type=int, default=32)
     config = argparser.parse_args()

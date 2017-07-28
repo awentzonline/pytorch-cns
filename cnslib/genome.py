@@ -61,13 +61,13 @@ class Genome:
             out = out.reshape(original_shape)
         return out
 
-    def mutate(self, p_index=0.1, p_value=0.8, value_range=(-5., 5.)):
+    def mutate(self, p_index=0.1, p_value=0.8, value_sigma=1.):
         for gene in self.genes:
             if np.random.uniform() < p_index:
                 gene.index += np.random.randint(-2, 3)
                 gene.index = np.clip(gene.index, 0, self.num_weights - 1)
             if np.random.uniform() < p_value:
-                gene.value += np.random.uniform(*value_range)
+                gene.value += np.random.normal(0., value_sigma)
 
     def split(self):
         p = len(self.genes) // 2
@@ -111,9 +111,9 @@ class ModelGenome:
             _tmp = genome.decode(_tmp)
             parameter.data = torch.from_numpy(_tmp)
 
-    def mutate(self, p_index=0.1, p_value=0.8, value_range=(-5., 5.)):
+    def mutate(self, p_index=0.1, p_value=0.8, value_sigma=1.):
         for genome in self.genomes:
-            genome.mutate(p_index=p_index, p_value=p_value, value_range=value_range)
+            genome.mutate(p_index=p_index, p_value=p_value, value_sigma=value_sigma)
 
     def split(self):
         lefts = []

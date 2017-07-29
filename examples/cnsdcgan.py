@@ -38,13 +38,13 @@ parser.add_argument('--netG', default='', help="path to netG (to continue traini
 parser.add_argument('--netD', default='', help="path to netD (to continue training)")
 parser.add_argument('--outf', default='.', help='folder to output images and model checkpoints')
 parser.add_argument('--manualSeed', type=int, help='manual seed')
-parser.add_argument('--save-every', type=float, default=0.1, help='probability of saving samples')
+parser.add_argument('--save-every', type=int, default=1, help='probability of saving samples')
 parser.add_argument('--episode-batches', type=int, default=1)
 parser.add_argument('--gene-weight-ratio', type=float, default=0.05)
-parser.add_argument('--freq-weight-ratio', type=float, default=0.3)
-parser.add_argument('--v-sigma', type=list_of(float), default=10.)
-parser.add_argument('--i-sigma', type=float, default=1.)
-parser.add_argument('--v-init', type=list_of(float), default=(-10., 10.))
+parser.add_argument('--freq-weight-ratio', type=float, default=0.7)
+parser.add_argument('--v-sigma', type=list_of(float), default=1.)
+parser.add_argument('--i-sigma', type=float, default=2.)
+parser.add_argument('--v-init', type=list_of(float), default=(-1., 1.))
 parser.add_argument('--min-genepool', type=int, default=2)
 parser.add_argument('--clear-store', action='store_true')
 parser.add_argument('--render', action='store_true')
@@ -240,14 +240,24 @@ def main(config):
         best_genomes_d = update_agent(agent_d, reward, genepool_d, config)
         if best_genomes_d:
             best_agent_d.load_genome(best_genomes_d[0][0])
+            best_agent_d.update_model()
         print('Starting generator episode')
         reward = run_generator_episode(best_agent_d, agent_g, dataloader, config)
         print('Reward {}'.format(reward,))
         best_genomes_g = update_agent(agent_g, reward, genepool_g, config)
         if best_genomes_g:
             best_agent_g.load_genome(best_genomes_g[0][0])
-
+            best_agent_g.update_model()
         num_episodes += 1
+        if num_episodes % config.save_every == 0 and config.render:
+            # vutils.save_image(real_cpu,
+            #         '{}/real_samples.png'.format(opt.outf),
+            #         normalize=True)
+            print('saving')
+            fake = best_agent_g(fixed_noise)
+            vutils.save_image(fake.data,
+                    '{}/fake_samples_epoch_.png'.format(opt.outf, ),
+                    normalize=True)
 
 
 def update_agent(agent, reward, genepool, config):
@@ -304,14 +314,6 @@ def run_generator_episode(agent_d, agent_g, dataloader, config):
         print('[{}/{}][{}/{}]: {} {} / G: {} {}'.format(
             '?', opt.niter, i, len(dataloader),
             np.min(losses), np.max(losses), np.min(losses), np.max(losses)))
-        if config.save_every < np.random.uniform() and config.render:
-            # vutils.save_image(real_cpu,
-            #         '{}/real_samples.png'.format(opt.outf),
-            #         normalize=True)
-            fake = agent_g(fixed_noise)
-            vutils.save_image(fake.data,
-                    '{}/fake_samples_epoch_.png'.format(opt.outf,),
-                    normalize=True)
     return np.sum(losses)
 
 

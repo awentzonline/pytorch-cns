@@ -49,7 +49,7 @@ parser.add_argument('--min-genepool', type=int, default=2)
 parser.add_argument('--clear-store', action='store_true')
 parser.add_argument('--render', action='store_true')
 parser.add_argument('--num-best', type=int, default=20)
-parser.add_argument('--num-hidden', type=int, default=256)
+parser.add_argument('--num-hidden', type=int, default=64)
 parser.add_argument('--model', default='cnn')
 opt = parser.parse_args()
 print(opt)
@@ -205,6 +205,8 @@ class MLPD(nn.Module):
         self.main = nn.Sequential(
             nn.Linear(num_input, num_hidden),
             nn.ReLU(),
+            nn.Linear(num_hidden, num_hidden),
+            nn.ReLU(),
             nn.Linear(num_hidden, 1),
             nn.Sigmoid()
         )
@@ -222,6 +224,8 @@ class MLPG(nn.Module):
         self.output_shape = output_shape
         self.main = nn.Sequential(
             nn.Linear(num_input, num_hidden),
+            nn.ReLU(),
+            nn.Linear(num_hidden, num_hidden),
             nn.ReLU(),
             nn.Linear(num_hidden, num_output),
             nn.Tanh()

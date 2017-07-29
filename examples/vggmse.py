@@ -126,11 +126,10 @@ def weights_init(m):
         m.bias.data.fill_(0)
 
 
-class NetG(nn.Module):
-    def __init__(self, ngpu):
-        super(NetG, self).__init__()
-        self.ngpu = ngpu
-        self.encoder = nn.Sequential(
+class Encoder(nn.Module):
+    def __init__(self):
+        super(Encoder, self).__init__()
+        self.main = nn.Sequential(
             # input is (nc) x 64 x 64
             nn.Conv2d(nc, ndf, 4, 2, 1, bias=False),
             nn.LeakyReLU(0.2, inplace=True),
@@ -147,14 +146,19 @@ class NetG(nn.Module):
             #nn.BatchNorm2d(ndf * 8),
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf*8) x 4 x 4
-            nn.Conv2d(ndf * 8, 1, 4, 1, 0, bias=False),
-            pooling.AvgPool2d(1),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Linear(ndf * 8, nz),
-            nn.Sigmoid()
+            nn.Conv2d(ndf * 8, nz, 4, 1, 0, bias=False),
+            nn.Tanh()
         )
 
-        self.decoder = nn.Sequential(
+    def forward(self, input):
+        z = self.main(input)
+        return z.view(z.size(0), -1)
+
+
+class Decoder(nn.Module):
+    def __init__(self):
+        super(Decoder, self).__init__()
+        self.main = nn.Sequential(
             # input is Z, going into a convolution
             nn.ConvTranspose2d(     nz, ngf * 8, 4, 1, 0, bias=False),
             #nn.BatchNorm2d(ngf * 8),
@@ -178,10 +182,23 @@ class NetG(nn.Module):
         )
 
     def forward(self, input):
-        return self.decoder(self.encoder(input))
+        batch, z = input.size()
+        input = input.view(batch, z, 1, 1)
+        return self.main(input)
 
 
-netG = NetG(ngpu)
+class AutoEncoder(nn.Module):
+    def __init__(self, encoder, decoder):
+        super(AutoEncoder, self).__init__()
+        self.encoder = encoder
+        self.decoder = decoder
+
+    def forward(self, input):
+        z = self.encoder(input)
+        return self.decoder(z)
+
+
+netG = AutoEncoder(Encoder(), Decoder())
 netG.apply(weights_init)
 if opt.netG != '':
     netG.load_state_dict(torch.load(opt.netG))
@@ -190,8 +207,7 @@ print(netG)
 criterion = nn.MSELoss()
 
 input = torch.FloatTensor(opt.batchSize, 3, opt.imageSize, opt.imageSize)
-noise = torch.FloatTensor(opt.batchSize, nz, 1, 1)
-fixed_noise = torch.FloatTensor(opt.batchSize, nz, 1, 1).normal_(0, 1)
+fixed_noise = torch.FloatTensor(opt.batchSize, nz).normal_(0, 1)
 vgg = vgg16(pretrained=True)
 vgg_features = nn.Sequential(*(vgg.features[i] for i in range(11)))
 if opt.cuda:
@@ -204,6 +220,7 @@ fixed_noise = Variable(fixed_noise)
 def main(config):
     agent_g = Agent(netG)
     agent_g.randomize(config.gene_weight_ratio, config.freq_weight_ratio, config.v_init)
+    agent_g.update_model()
     genepool_g = GenePool(key='g_genes_vggmse')
     if config.clear_store:
         genepool_g.clear()
@@ -236,7 +253,7 @@ def update_agent(agent, reward, genepool, config):
 
 
 def run_generator_episode(agent_g, vgg_features, dataloader, config):
-    global noisev, fixed_noise  # mutating from pytorch example
+    global fixed_noise  # mutating from pytorch example
     data_iter = iter(dataloader)
     losses = []
     for i in range(config.episode_batches):
@@ -249,10 +266,7 @@ def run_generator_episode(agent_g, vgg_features, dataloader, config):
         input.resize_as_(real_cpu).copy_(real_cpu)
         inputv = Variable(input)
         real_features = vgg_features(inputv).detach()
-        # fake
-        noise.resize_(batch_size, nz, 1, 1).normal_(0, 1)
-        noisev = Variable(noise)
-        fake = agent_g(input).detach()
+        fake = agent_g(inputv).detach()
         fake_features = vgg_features(fake)
         losses.append(criterion(fake_features, real_features).data[0])
 
@@ -263,7 +277,7 @@ def run_generator_episode(agent_g, vgg_features, dataloader, config):
             # vutils.save_image(real_cpu,
             #         '{}/real_samples.png'.format(opt.outf),
             #         normalize=True)
-            fake = agent_g(fixed_noise)
+            fake = agent_g.model.decoder(fixed_noise)
             vutils.save_image(fake.data,
                     '{}/fake_samples_epoch_.png'.format(opt.outf,),
                     normalize=True)

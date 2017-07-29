@@ -42,8 +42,8 @@ parser.add_argument('--outf', default='.', help='folder to output images and mod
 parser.add_argument('--manualSeed', type=int, help='manual seed')
 parser.add_argument('--save-every', type=float, default=0.1, help='probability of saving samples')
 parser.add_argument('--episode-batches', type=int, default=1)
-parser.add_argument('--gene-weight-ratio', type=float, default=0.05)
-parser.add_argument('--freq-weight-ratio', type=float, default=1.)
+parser.add_argument('--gene-weight-ratio', type=float, default=0.01)
+parser.add_argument('--freq-weight-ratio', type=float, default=0.1)
 parser.add_argument('--i-sigma', type=float, default=1.)
 parser.add_argument('--v-sigma', type=float, default=1.)
 parser.add_argument('--v-init', type=list_of(float), default=(-1., 1.))
@@ -212,13 +212,13 @@ vgg = vgg16(pretrained=True)
 vgg_features = nn.Sequential(*(vgg.features[i] for i in range(11)))
 if opt.cuda:
     criterion.cuda()
-    input, noise, fixed_noise = input.cuda(), noise.cuda(), fixed_noise.cuda()
+    input, fixed_noise = input.cuda(), fixed_noise.cuda()
     vgg_features.cuda()
 
 fixed_noise = Variable(fixed_noise)
 
 def main(config):
-    agent_g = Agent(netG)
+    agent_g = Agent(netG, cuda=config.cuda)
     agent_g.randomize(config.gene_weight_ratio, config.freq_weight_ratio, config.v_init)
     agent_g.update_model()
     genepool_g = GenePool(key='g_genes_vggmse')
@@ -233,21 +233,19 @@ def main(config):
         num_episodes += 1
 
 
-def update_agent(agent, reward, genepool, config):
+def update_agent(agent, loss, genepool, config):
     best_genomes = genepool.top_n(config.num_best, reverse=False)
-    if len(best_genomes) < config.min_genepool:
-        genepool.report_score(agent.genome, reward)  # we're still gathering scores
-    else:
-        _, best_score = best_genomes[0]
-        _, worst_best_score = best_genomes[-1]
-        print('Genepool top: {}, {}'.format(best_score, worst_best_score))
-        if reward > worst_best_score:
+    if len(best_genomes) >= config.min_genepool:
+        _, best_loss = best_genomes[0]
+        _, worst_best_loss = best_genomes[-1]
+        print('Genepool top: {}, {}'.format(best_loss, worst_best_loss))
+        if loss > worst_best_loss:
             # Our score isn't notable
             agent.crossover(best_genomes)
         else:
-            # New low-ish score
-            print('new ok score')
-            genepool.report_score(agent.genome, reward)
+            # New low-ish loss
+            print('new ok loss')
+    genepool.report_score(agent.genome, loss)
     agent.mutate(index_sigma=config.i_sigma, value_sigma=config.v_sigma)
     agent.update_model()
 

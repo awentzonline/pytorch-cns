@@ -280,12 +280,13 @@ if opt.cuda:
 fixed_noise = Variable(fixed_noise)
 
 def main(config):
-    agent_d = Agent(make_model_d())
-    agent_g = Agent(make_model_g())
-    best_agent_d = Agent(make_model_d())
-    best_agent_g = Agent(make_model_g())
+    agent_d = Agent(make_model_d(), cuda=config.cuda)
+    agent_g = Agent(make_model_g(), cuda=config.cuda)
+    best_agent_d = Agent(make_model_d(), cuda=config.cuda)
+    best_agent_g = Agent(make_model_g(), cuda=config.cuda)
     for agent in (agent_d, agent_g, best_agent_d, best_agent_g):
         agent.randomize(config.gene_weight_ratio, config.freq_weight_ratio, config.v_init)
+        agent.update_model()
     genepool_d = GenePool(key='d_genes')
     genepool_g = GenePool(key='g_genes')
     if config.clear_store:

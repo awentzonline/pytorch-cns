@@ -8,8 +8,9 @@ from cnslib.genome import ModelGenome
 
 
 class Agent:
-    def __init__(self, model):
+    def __init__(self, model, cuda=False):
         self.model = model
+        self.cuda = cuda
         self.genome = ModelGenome(model)
         self.genome_a = ModelGenome(model)
         self.genome_b = ModelGenome(model)
@@ -40,6 +41,8 @@ class Agent:
 
     def update_model(self):
         self.genome.decode(self.model)
+        if self.cuda:
+            self.model.cuda()
 
     def load_genome(self, genome):
         self.genome.deserialize_genomes(genome)

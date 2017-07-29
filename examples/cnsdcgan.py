@@ -27,9 +27,9 @@ parser.add_argument('--dataroot', required=True, help='path to dataset')
 parser.add_argument('--workers', type=int, help='number of data loading workers', default=2)
 parser.add_argument('--batchSize', type=int, default=64, help='input batch size')
 parser.add_argument('--imageSize', type=int, default=64, help='the height / width of the input image to network')
-parser.add_argument('--nz', type=int, default=100, help='size of the latent z vector')
-parser.add_argument('--ngf', type=int, default=32)
-parser.add_argument('--ndf', type=int, default=32)
+parser.add_argument('--nz', type=int, default=50, help='size of the latent z vector')
+parser.add_argument('--ngf', type=int, default=16)
+parser.add_argument('--ndf', type=int, default=16)
 parser.add_argument('--niter', type=int, default=25, help='number of epochs to train for')
 parser.add_argument('--learning_rate', type=float, default=0.001, help='learning rate, default=0.0002')
 parser.add_argument('--cuda', action='store_true', help='enables cuda')
@@ -41,10 +41,10 @@ parser.add_argument('--manualSeed', type=int, help='manual seed')
 parser.add_argument('--save-every', type=float, default=0.1, help='probability of saving samples')
 parser.add_argument('--episode-batches', type=int, default=1)
 parser.add_argument('--gene-weight-ratio', type=float, default=0.05)
-parser.add_argument('--freq-weight-ratio', type=float, default=1.)
-parser.add_argument('--v-sigma', type=list_of(float), default=1.)
+parser.add_argument('--freq-weight-ratio', type=float, default=0.3)
+parser.add_argument('--v-sigma', type=list_of(float), default=10.)
 parser.add_argument('--i-sigma', type=float, default=1.)
-parser.add_argument('--v-init', type=list_of(float), default=(-1., 1.))
+parser.add_argument('--v-init', type=list_of(float), default=(-10., 10.))
 parser.add_argument('--min-genepool', type=int, default=2)
 parser.add_argument('--clear-store', action='store_true')
 parser.add_argument('--render', action='store_true')
@@ -223,7 +223,9 @@ fixed_noise = Variable(fixed_noise)
 def main(config):
     agent_d = Agent(netD)
     agent_g = Agent(netG)
-    for agent in (agent_d, agent_g):
+    best_agent_d = Agent(NetD(ngpu))
+    best_agent_g = Agent(NetG(ngpu))
+    for agent in (agent_d, agent_g, best_agent_d, best_agent_g):
         agent.randomize(config.gene_weight_ratio, config.freq_weight_ratio, config.v_init)
     genepool_d = GenePool(key='d_genes')
     genepool_g = GenePool(key='g_genes')
@@ -233,13 +235,17 @@ def main(config):
     num_episodes = 0
     while True:
         print('Starting discriminator episode')
-        reward = run_discriminator_episode(agent_d, agent_g, dataloader, config)
+        reward = run_discriminator_episode(agent_d, best_agent_g, dataloader, config)
         print('Reward {}'.format(reward,))
-        update_agent(agent_d, reward, genepool_d, config)
+        best_genomes_d = update_agent(agent_d, reward, genepool_d, config)
+        if best_genomes_d:
+            best_agent_d.load_genome(best_genomes_d[0][0])
         print('Starting generator episode')
-        reward = run_generator_episode(agent_d, agent_g, dataloader, config)
+        reward = run_generator_episode(best_agent_d, agent_g, dataloader, config)
         print('Reward {}'.format(reward,))
-        update_agent(agent_g, reward, genepool_g, config)
+        best_genomes_g = update_agent(agent_g, reward, genepool_g, config)
+        if best_genomes_g:
+            best_agent_g.load_genome(best_genomes_g[0][0])
 
         num_episodes += 1
 
@@ -261,6 +267,7 @@ def update_agent(agent, reward, genepool, config):
             genepool.report_score(agent.genome, reward)
     agent.mutate(index_sigma=config.i_sigma, value_sigma=config.v_sigma)
     agent.update_model()
+    return best_genomes
 
 
 def run_discriminator_episode(agent_d, agent_g, dataloader, config):

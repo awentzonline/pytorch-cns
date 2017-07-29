@@ -1,4 +1,5 @@
 import base64
+import itertools
 import operator
 import pickle
 import random
@@ -29,9 +30,9 @@ class Genome:
     '''Each gene is a tuple of the form (index, value) which represents
     a DCT coefficient.
     '''
-    def __init__(self, num_weights):
+    def __init__(self, num_weights, genes=None):
         self.num_weights = num_weights
-        self.genes = []
+        self.genes = genes or []
 
     def randomize(self, gene_weight_ratio, max_index, value_range):
         self.genes = []
@@ -69,11 +70,38 @@ class Genome:
             if np.random.uniform() < p_value:
                 gene.value += np.random.normal(0., value_sigma)
 
-    def split(self):
-        p = len(self.genes) // 2
+    def split(self, random=True):
+        if random:
+            p = np.random.randint(len(self.genes))
+        else:
+            p = len(self.genes) // 2
         left = [g.clone() for g in self.genes[:p]]
         right = [g.clone() for g in self.genes[p:]]
         return left, right
+
+    def cut(self, p_cut):
+        num_genes = len(self.genes)
+        if np.random.uniform() < p_cut * num_genes:
+            pivot = np.random.randint(num_genes)
+            left = [g.clone() for g in self.genes[:pivot]]
+            right = [g.clone() for g in self.genes[pivot:]]
+            return left, right
+        return ([g.clone() for g in self.genes],)
+
+    def splice(self, other, p_cut, p_splice):
+        this_cuts = self.cut(p_cut)
+        other_cuts = other.cut(p_cut)
+        results = []
+        current = []
+        for chromosome in itertools.chain(this_cuts, other_cuts):
+            if not current or np.random.uniform() < p_splice:
+                current += chromosome
+            elif current:
+                results.append(current)
+                current = []
+        if current:
+            results.append(current)
+        return results
 
     def child(self, a, b):
         left_a, right_a = a.split()

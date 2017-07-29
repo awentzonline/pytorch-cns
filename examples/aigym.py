@@ -51,7 +51,7 @@ def main(config):
         if (num_episodes + 1) % 50 == 0 and config.render:
             print('******** EXHIBITION ***********')
             print(agent.genome)
-            best_genome, _ = best_genomes[0]
+            best_genome, _ = random.chioce(best_genomes)
             agent.load_genome(best_genome)
             run_episode(agent, environment, config)
 

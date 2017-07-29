@@ -27,7 +27,7 @@ parser.add_argument('--dataroot', required=True, help='path to dataset')
 parser.add_argument('--workers', type=int, help='number of data loading workers', default=2)
 parser.add_argument('--batchSize', type=int, default=64, help='input batch size')
 parser.add_argument('--imageSize', type=int, default=64, help='the height / width of the input image to network')
-parser.add_argument('--nz', type=int, default=50, help='size of the latent z vector')
+parser.add_argument('--nz', type=int, default=100, help='size of the latent z vector')
 parser.add_argument('--ngf', type=int, default=16)
 parser.add_argument('--ndf', type=int, default=16)
 parser.add_argument('--niter', type=int, default=25, help='number of epochs to train for')
@@ -40,15 +40,17 @@ parser.add_argument('--outf', default='.', help='folder to output images and mod
 parser.add_argument('--manualSeed', type=int, help='manual seed')
 parser.add_argument('--save-every', type=int, default=1, help='probability of saving samples')
 parser.add_argument('--episode-batches', type=int, default=1)
-parser.add_argument('--gene-weight-ratio', type=float, default=0.05)
-parser.add_argument('--freq-weight-ratio', type=float, default=0.7)
-parser.add_argument('--v-sigma', type=list_of(float), default=1.)
+parser.add_argument('--gene-weight-ratio', type=float, default=0.02)
+parser.add_argument('--freq-weight-ratio', type=float, default=0.1)
+parser.add_argument('--v-sigma', type=list_of(float), default=5.)
 parser.add_argument('--i-sigma', type=float, default=2.)
 parser.add_argument('--v-init', type=list_of(float), default=(-1., 1.))
 parser.add_argument('--min-genepool', type=int, default=2)
 parser.add_argument('--clear-store', action='store_true')
 parser.add_argument('--render', action='store_true')
 parser.add_argument('--num-best', type=int, default=20)
+parser.add_argument('--num-hidden', type=int, default=256)
+parser.add_argument('--model', default='cnn')
 opt = parser.parse_args()
 print(opt)
 
@@ -113,6 +115,7 @@ elif opt.dataset == 'mnist':
 assert dataset
 dataloader = torch.utils.data.DataLoader(dataset, batch_size=opt.batchSize,
                                          shuffle=True, num_workers=int(opt.workers))
+image_shape = (nc, opt.imageSize, opt.imageSize)
 
 # custom weights initialization called on netG and netD
 def weights_init(m):
@@ -152,17 +155,13 @@ class NetG(nn.Module):
         )
 
     def forward(self, input):
+        batch, z = input.size()
+        input = input.view(batch, z, 1, 1)
         if isinstance(input.data, torch.cuda.FloatTensor) and self.ngpu > 1:
             output = nn.parallel.data_parallel(self.main, input, range(self.ngpu))
         else:
             output = self.main(input)
         return output
-
-netG = NetG(ngpu)
-netG.apply(weights_init)
-if opt.netG != '':
-    netG.load_state_dict(torch.load(opt.netG))
-print(netG)
 
 
 class NetD(nn.Module):
@@ -195,23 +194,83 @@ class NetD(nn.Module):
             output = nn.parallel.data_parallel(self.main, input, range(self.ngpu))
         else:
             output = self.main(input)
-
         return output.view(-1, 1)
 
-netD = NetD(ngpu)
-netD.apply(weights_init)
-if opt.netD != '':
-    netD.load_state_dict(torch.load(opt.netD))
-print(netD)
+
+class MLPD(nn.Module):
+    def __init__(self, input_shape, num_hidden):
+        super(MLPD, self).__init__()
+        num_input = int(np.prod(input_shape))
+        print(num_input, num_hidden)
+        self.main = nn.Sequential(
+            nn.Linear(num_input, num_hidden),
+            nn.ReLU(),
+            nn.Linear(num_hidden, 1),
+            nn.Sigmoid()
+        )
+
+    def forward(self, x):
+        x = x.view(x.size(0), -1)
+        y = self.main(x)
+        return y
+
+
+class MLPG(nn.Module):
+    def __init__(self, num_input, num_hidden, output_shape):
+        super(MLPG, self).__init__()
+        num_output = int(np.prod(output_shape))
+        self.output_shape = output_shape
+        self.main = nn.Sequential(
+            nn.Linear(num_input, num_hidden),
+            nn.ReLU(),
+            nn.Linear(num_hidden, num_output),
+            nn.Tanh()
+        )
+
+    def forward(self, x):
+        print(x.size())
+        y = self.main(x)
+        return y.view(y.size(0), *self.output_shape)
+
 
 criterion = nn.BCELoss()
 
-input = torch.FloatTensor(opt.batchSize, 3, opt.imageSize, opt.imageSize)
-noise = torch.FloatTensor(opt.batchSize, nz, 1, 1)
-fixed_noise = torch.FloatTensor(opt.batchSize, nz, 1, 1).normal_(0, 1)
+noise_shape = (nz,)
+input = torch.FloatTensor(opt.batchSize, *image_shape)
+noise = torch.FloatTensor(opt.batchSize, *noise_shape)
+fixed_noise = torch.FloatTensor(opt.batchSize, *noise_shape).normal_(0, 1)
 label = torch.FloatTensor(opt.batchSize)
 real_label = 1
 fake_label = 0
+
+def make_mlp_g():
+    return MLPG(nz, opt.num_hidden, image_shape)
+
+def make_mlp_d():
+    return MLPD(image_shape, opt.num_hidden)
+
+def make_cnn_g():
+    netG = NetG(ngpu)
+    netG.apply(weights_init)
+    if opt.netG != '':
+        netG.load_state_dict(torch.load(opt.netG))
+    print(netG)
+    return netG
+
+def make_cnn_d():
+    netD = NetD(ngpu)
+    netD.apply(weights_init)
+    if opt.netD != '':
+        netD.load_state_dict(torch.load(opt.netD))
+    print(netD)
+    return netD
+
+if opt.model == 'cnn':
+    make_model_g = make_cnn_g
+    make_model_d = make_cnn_d
+else:
+    make_model_g = make_mlp_g
+    make_model_d = make_mlp_d
 
 if opt.cuda:
     criterion.cuda()
@@ -221,10 +280,10 @@ if opt.cuda:
 fixed_noise = Variable(fixed_noise)
 
 def main(config):
-    agent_d = Agent(netD)
-    agent_g = Agent(netG)
-    best_agent_d = Agent(NetD(ngpu))
-    best_agent_g = Agent(NetG(ngpu))
+    agent_d = Agent(make_model_d())
+    agent_g = Agent(make_model_g())
+    best_agent_d = Agent(make_model_d())
+    best_agent_g = Agent(make_model_g())
     for agent in (agent_d, agent_g, best_agent_d, best_agent_g):
         agent.randomize(config.gene_weight_ratio, config.freq_weight_ratio, config.v_init)
     genepool_d = GenePool(key='d_genes')
@@ -296,7 +355,7 @@ def run_discriminator_episode(agent_d, agent_g, dataloader, config):
         labelv = Variable(label)
         losses.append(criterion(agent_d(inputv), labelv).data[0])
         # train with fake
-        noise.resize_(batch_size, nz, 1, 1).normal_(0, 1)
+        noise.resize_(batch_size, *noise_shape).normal_(0, 1)
         noisev = Variable(noise)
         fake = agent_g(noisev)
         labelv = Variable(label.fill_(fake_label))

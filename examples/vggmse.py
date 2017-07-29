@@ -9,6 +9,7 @@ import torch.nn as nn
 import torch.nn.parallel
 import torch.backends.cudnn as cudnn
 import torch.optim as optim
+
 import torch.utils.data
 import torchvision.datasets as dset
 import torchvision.transforms as transforms
@@ -45,7 +46,7 @@ parser.add_argument('--gene-weight-ratio', type=float, default=0.05)
 parser.add_argument('--freq-weight-ratio', type=float, default=1.)
 parser.add_argument('--i-sigma', type=float, default=1.)
 parser.add_argument('--v-sigma', type=float, default=1.)
-parser.add_argument('--v-init', type=list_of(float), default=(-10., 10.))
+parser.add_argument('--v-init', type=list_of(float), default=(-1., 1.))
 parser.add_argument('--min-genepool', type=int, default=2)
 parser.add_argument('--clear-store', action='store_true')
 parser.add_argument('--render', action='store_true')
@@ -129,7 +130,31 @@ class NetG(nn.Module):
     def __init__(self, ngpu):
         super(NetG, self).__init__()
         self.ngpu = ngpu
-        self.main = nn.Sequential(
+        self.encoder = nn.Sequential(
+            # input is (nc) x 64 x 64
+            nn.Conv2d(nc, ndf, 4, 2, 1, bias=False),
+            nn.LeakyReLU(0.2, inplace=True),
+            # state size. (ndf) x 32 x 32
+            nn.Conv2d(ndf, ndf * 2, 4, 2, 1, bias=False),
+            #nn.BatchNorm2d(ndf * 2),
+            nn.LeakyReLU(0.2, inplace=True),
+            # state size. (ndf*2) x 16 x 16
+            nn.Conv2d(ndf * 2, ndf * 4, 4, 2, 1, bias=False),
+            #nn.BatchNorm2d(ndf * 4),
+            nn.LeakyReLU(0.2, inplace=True),
+            # state size. (ndf*4) x 8 x 8
+            nn.Conv2d(ndf * 4, ndf * 8, 4, 2, 1, bias=False),
+            #nn.BatchNorm2d(ndf * 8),
+            nn.LeakyReLU(0.2, inplace=True),
+            # state size. (ndf*8) x 4 x 4
+            nn.Conv2d(ndf * 8, 1, 4, 1, 0, bias=False),
+            pooling.AvgPool2d(1),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Linear(ndf * 8, nz),
+            nn.Sigmoid()
+        )
+
+        self.decoder = nn.Sequential(
             # input is Z, going into a convolution
             nn.ConvTranspose2d(     nz, ngf * 8, 4, 1, 0, bias=False),
             #nn.BatchNorm2d(ngf * 8),
@@ -153,11 +178,8 @@ class NetG(nn.Module):
         )
 
     def forward(self, input):
-        if isinstance(input.data, torch.cuda.FloatTensor) and self.ngpu > 1:
-            output = nn.parallel.data_parallel(self.main, input, range(self.ngpu))
-        else:
-            output = self.main(input)
-        return output
+        return self.decoder(self.encoder(input))
+
 
 netG = NetG(ngpu)
 netG.apply(weights_init)
@@ -230,7 +252,7 @@ def run_generator_episode(agent_g, vgg_features, dataloader, config):
         # fake
         noise.resize_(batch_size, nz, 1, 1).normal_(0, 1)
         noisev = Variable(noise)
-        fake = agent_g(noisev).detach()
+        fake = agent_g(input).detach()
         fake_features = vgg_features(fake)
         losses.append(criterion(fake_features, real_features).data[0])
 

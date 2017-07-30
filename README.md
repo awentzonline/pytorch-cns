@@ -15,8 +15,9 @@ Examples
 So far, I've used the aigym example to solve CartPole and LunarLander.
 The image generation examples haven't yielded anything good for me, yet.
 
-`aigym.py`: Evolve a group of agents to solve OpenAI Gym environments. Requires
-redis for storing the gene pool.
+`aigym.py`: Evolve a group of agents to solve OpenAI Gym environments.
+
+`atari.py`: Solve atari games in the OpenAI Gym.
 
 `cnsdcgan.py`: DCGAN adapted from the PyTorch DCGAN example. Attempts to train
 both the discriminator and generator with compressed network search.

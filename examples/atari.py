@@ -21,6 +21,8 @@ class MLP(nn.Module):
         self.main = nn.Sequential(
             nn.Linear(num_input, num_hidden),
             nn.ReLU(),
+            nn.Linear(num_hidden, num_hidden),
+            nn.ReLU(),
             nn.Linear(num_hidden, num_actions),
             nn.Softmax()
         )
@@ -102,7 +104,7 @@ if __name__ == '__main__':
     argparser.add_argument('--num-best', type=int, default=20)
     argparser.add_argument('--render', action='store_true')
     argparser.add_argument('--clear-store', action='store_true')
-    argparser.add_argument('--gene-weight-ratio', type=float, default=0.01)
+    argparser.add_argument('--gene-weight-ratio', type=float, default=0.005)
     argparser.add_argument('--freq-weight-ratio', type=float, default=1.)
     argparser.add_argument('--i-sigma', type=float, default=1.)
     argparser.add_argument('--v-sigma', type=list_of(float), default=1.)

@@ -10,6 +10,7 @@ from cnslib.genome import ModelGenome
 class Agent:
     def __init__(self, model, cuda=False):
         self.model = model
+        self.model.eval()
         self.cuda = cuda
         self.genome = ModelGenome(model)
         self.genome_a = ModelGenome(model)

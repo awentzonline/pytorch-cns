@@ -47,3 +47,7 @@ class Agent:
 
     def load_genome(self, genome):
         self.genome.deserialize_genomes(genome)
+
+    def summary(self):
+        print(self.model)
+        print(self.genome)

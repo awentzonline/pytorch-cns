@@ -29,10 +29,6 @@ Invoke the example with `python atari_pix.py --render --best` to run the simulat
 with the fittest genome. This can be done at the same time as the workers are
 running to monitor progress.
 
-These examples use `multiprocessing` to run many agents at once (controlled by
-`--num-agents` default=10). A gene pool is kept in a redis ordered set--the
-score being the last total reward observed for that genome.
-
 Image generation
 ----------------
 These do not converge on anything at the moment. Maybe, if you are a real GANimal,

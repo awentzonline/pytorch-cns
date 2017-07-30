@@ -22,21 +22,18 @@ class MLP(nn.Module):
         num_input = int(np.prod(input_shape))
         self.num_hidden = num_hidden
         self.convs = nn.Sequential(
-            nn.Conv2d(input_shape[0], base_filters, 4, 2, 1, bias=False),
+            nn.Conv2d(input_shape[0], base_filters, 8, 4, 1, bias=False),
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf) x 32 x 32
             nn.Conv2d(base_filters, base_filters * 2, 4, 2, 1, bias=False),
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf*2) x 16 x 16
-            nn.Conv2d(base_filters * 2, base_filters * 4, 4, 2, 1, bias=False),
+            nn.Conv2d(base_filters * 2, base_filters * 2, 3, 1, 1, bias=False),
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf*4) x 8 x 8
-            nn.Conv2d(base_filters * 4, base_filters * 8, 4, 2, 1, bias=False),
-            nn.LeakyReLU(0.2, inplace=True),
-            # state size. (ndf*8) x 4 x 4
         )
-        self.conv_out_size = base_filters * 8 * 4 * 4
-        self.rnn = nn.GRU(self.conv_out_size, self.num_hidden)
+        self.conv_out_size = base_filters * 2 * 7 * 7
+        self.rnn = nn.RNN(self.conv_out_size, self.num_hidden, batch_first=True)
         self.classifier = nn.Sequential(
             nn.Linear(num_hidden, num_actions),
             nn.Softmax()
@@ -49,7 +46,7 @@ class MLP(nn.Module):
         return self.classifier(z.view(z.size(0), -1)), hidden
 
     def init_hidden(self):
-        return Variable(torch.randn(1, 1, self.num_hidden))
+        return Variable(torch.zeros(1, 1, self.num_hidden))
 
 
 def main(config):
@@ -57,7 +54,7 @@ def main(config):
     state_shape = (3, 64, 64)
     num_hidden = config.num_hidden
     num_actions = environment.action_space.n
-    base_filters = 8
+    base_filters = 16
     agent = Agent(MLP(state_shape, base_filters, num_hidden, num_actions))
     best_agent = Agent(MLP(state_shape, base_filters, num_hidden, num_actions))
     agent.randomize(config.gene_weight_ratio, config.freq_weight_ratio, config.v_init)
@@ -77,6 +74,7 @@ def main(config):
             best_genome, _ = best_genomes[0]#random.choice(best_genomes)
             best_agent.load_genome(best_genome)
             best_agent.update_model()
+            print(best_agent.genome.summary())
             best_reward, steps = run_episode(best_agent, environment, config)
             if not config.best:
                 genepool.report_score(best_agent.genome, best_reward)
@@ -128,12 +126,12 @@ if __name__ == '__main__':
     argparser.add_argument('--num-best', type=int, default=20)
     argparser.add_argument('--render', action='store_true')
     argparser.add_argument('--clear-store', action='store_true')
-    argparser.add_argument('--gene-weight-ratio', type=float, default=0.001)
-    argparser.add_argument('--freq-weight-ratio', type=float, default=1.)
+    argparser.add_argument('--gene-weight-ratio', type=float, default=0.01)
+    argparser.add_argument('--freq-weight-ratio', type=float, default=1.0)
     argparser.add_argument('--i-sigma', type=float, default=1.)
     argparser.add_argument('--v-sigma', type=list_of(float), default=1.)
     argparser.add_argument('--v-init', type=list_of(float), default=(-1., 1.))
-    argparser.add_argument('--num-hidden', type=int, default=64)
+    argparser.add_argument('--num-hidden', type=int, default=32)
     argparser.add_argument('--best', action='store_true')
     argparser.add_argument('--num-agents', type=int, default=10)
     config = argparser.parse_args()

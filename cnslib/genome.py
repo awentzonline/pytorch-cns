@@ -103,26 +103,33 @@ class Genome:
             results.append(current)
         return results
 
-    def child(self, a, b):
+    def child(self, a, b, p_splice=0.5):
         left_a, right_a = a.split()
         left_b, right_b = b.split()
-        if np.random.uniform() < 0.5:
-            left = left_a
-            right = right_b
-        else:
-            left = left_b
-            right = right_a
-        self.genes = left + right
+        p_splice_next = 1.0
+        gs = filter(None, (left_a, left_b, right_a, right_b))
+        result = []
+        for g in random.shuffle(gs):
+            if np.random.uniform() < p_splice_next:
+                result += g
+            p_splice_next *= p_splice
+        self.genes = result
 
     def __str__(self):
         return '<Genome w={} {}>'.format(
             self.num_weights, ', '.join(str(g) for g in self.genes))
 
+    def summary(self):
+        return 'Genome nw={} ng={} mv={}'.format(
+            self.num_weights, len(self.genes),
+            np.mean([g.value for g in self.genes])
+        )
 
 class ModelGenome:
     def __init__(self, model):
         self.genomes = []
         self._tmp_storages = []
+        self.model = model
         for parameter in model.parameters():
             num_weights = np.prod(parameter.size())
             genome = Genome(num_weights)
@@ -176,4 +183,10 @@ class ModelGenome:
         self.genomes = pickle.loads(g)
 
     def __str__(self):
-        return '<ModelGenome {}>'.format(', '.join(str(g) for g in self.genomes))
+        return self.summary()
+
+    def summary(self):
+        lines = ['Model Genome']
+        for parameter, genome in zip(self.model.parameters(), self.genomes):
+            lines.append('P:{} G:{}'.format(parameter.size(), genome.summary()))
+        return '\n'.join(lines)

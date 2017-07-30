@@ -5,25 +5,12 @@ for PyTorch models.
 
 This creates a genome per layer, rather than a single one for the entire model as is described in the paper.
 
-Usage
------
 Install with `pip install pytorch-cns`
 
-```
-from cnslib.population import Population
-from yourcool.lib import Model
-...
-population = Population(lambda: Model(), yourconfig.num_models, yourconfig.cuda)
-...
-criterion = nn.BCELoss()
-...training loop...
-population.generation(batch_input, batch_output, criterion)  # update the population
-best_model = population.best_model()  # current best model
-```
 Examples
 --------
 So far, I've used the aigym example to solve CartPole and LunarLander.
-The image generation examples haven't yielded anything good for me, yet. 
+The image generation examples haven't yielded anything good for me, yet.
 
 `aigym.py`: Evolve a group of agents to solve OpenAI Gym environments. Requires
 redis for storing the gene pool.

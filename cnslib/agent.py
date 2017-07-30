@@ -16,16 +16,24 @@ class Agent:
         self.genome_a = ModelGenome(model)
         self.genome_b = ModelGenome(model)
 
-    def __call__(self, x):
-        return self.model(x)
+    def __call__(self, *args):
+        return self.model(*args)
 
-    def policy(self, state):
+    def policy(self, state, *args):
         state = state[None, ...].astype(np.float32)
         state = torch.from_numpy(state)
         inputv = Variable(state)
-        ps = self.model(inputv).data.numpy()
+        ps = self.model(inputv, *args).data.numpy()
         ps = np.argmax(ps)
         return ps
+
+    def policy_rnn(self, state, *args):
+        state = state[None, ...].astype(np.float32)
+        state = torch.from_numpy(state)
+        inputv = Variable(state)
+        result = self.model(inputv, *args)
+        action = np.argmax(result[0].data.numpy())
+        return action, result[1]
 
     def randomize(self, gene_weight_ratio, freq_weight_ratio, init_value_range):
         self.genome.randomize(gene_weight_ratio, freq_weight_ratio, init_value_range)

@@ -7,6 +7,7 @@ import redis
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from scipy.misc import imresize
 from torch.autograd import Variable
 
 from cnslib.agent import Agent
@@ -15,35 +16,54 @@ from cnslib.genepool import GenePool
 from cnslib.genome import ModelGenome
 
 
-class RNN(nn.Module):
-    def __init__(self, num_input, num_hidden, num_actions):
+class MLP(nn.Module):
+    def __init__(self, input_shape, base_filters, num_hidden, num_actions):
         super(MLP, self).__init__()
-        self.main = nn.Sequential(
-            nn.Linear(num_input, num_hidden),
-            nn.ReLU(),
-            nn.Linear(num_hidden, num_hidden),
-            nn.ReLU(),
+        num_input = int(np.prod(input_shape))
+        self.num_hidden = num_hidden
+        self.convs = nn.Sequential(
+            nn.Conv2d(input_shape[0], base_filters, 4, 2, 1, bias=False),
+            nn.LeakyReLU(0.2, inplace=True),
+            # state size. (ndf) x 32 x 32
+            nn.Conv2d(base_filters, base_filters * 2, 4, 2, 1, bias=False),
+            nn.LeakyReLU(0.2, inplace=True),
+            # state size. (ndf*2) x 16 x 16
+            nn.Conv2d(base_filters * 2, base_filters * 4, 4, 2, 1, bias=False),
+            nn.LeakyReLU(0.2, inplace=True),
+            # state size. (ndf*4) x 8 x 8
+            nn.Conv2d(base_filters * 4, base_filters * 8, 4, 2, 1, bias=False),
+            nn.LeakyReLU(0.2, inplace=True),
+            # state size. (ndf*8) x 4 x 4
+        )
+        self.conv_out_size = base_filters * 8 * 4 * 4
+        self.rnn = nn.GRU(self.conv_out_size, self.num_hidden)
+        self.classifier = nn.Sequential(
             nn.Linear(num_hidden, num_actions),
             nn.Softmax()
         )
 
-    def forward(self, x):
-        return self.main(x)
+    def forward(self, x, hidden):
+        z = self.convs(x)
+        z = z.view(z.size(0), 1, -1)
+        z, hidden = self.rnn(z, hidden)
+        return self.classifier(z.view(z.size(0), -1)), hidden
+
+    def init_hidden(self):
+        return Variable(torch.randn(1, 1, self.num_hidden))
 
 
 def main(config):
     environment = gym.make(config.env)
-    state_shape = environment.observation_space.low.shape
+    state_shape = (3, 64, 64)
     num_hidden = config.num_hidden
     num_actions = environment.action_space.n
-    agent = Agent(MLP(state_shape[0], num_hidden, num_actions))
-    best_agent = Agent(MLP(state_shape[0], num_hidden, num_actions))
+    base_filters = 8
+    agent = Agent(MLP(state_shape, base_filters, num_hidden, num_actions))
+    best_agent = Agent(MLP(state_shape, base_filters, num_hidden, num_actions))
     agent.randomize(config.gene_weight_ratio, config.freq_weight_ratio, config.v_init)
     agent.update_model()
-    print(agent.genome)
+    print(agent.summary())
     genepool = GenePool()
-    if config.clear_store:
-        genepool.clear()
     num_episodes = 0
     while True:
         print('Starting episode {}'.format(num_episodes))
@@ -85,10 +105,12 @@ def run_episode(agent, environment, config):
     num_steps = 0
     observation = environment.reset()
     done = False
+    hidden = agent.model.init_hidden()
     while not done:
         if config.render:
             environment.render()
-        action = agent.policy(observation)
+        observation = imresize(observation, (64, 64)).transpose(2, 0, 1)
+        action, hidden = agent.policy_rnn(observation, hidden)
         observation, reward, done, info = environment.step(action)
         total_reward += reward
         num_steps += 1
@@ -97,19 +119,37 @@ def run_episode(agent, environment, config):
 
 if __name__ == '__main__':
     import argparse
+    import multiprocessing
+    import time
+
     argparser = argparse.ArgumentParser()
-    argparser.add_argument('--env', default='Pong-ram-v0')
-    argparser.add_argument('--num-agents', type=int, default=10)
+    argparser.add_argument('--env', default='SpaceInvaders-v0')
     argparser.add_argument('--min-genepool', type=int, default=2)
     argparser.add_argument('--num-best', type=int, default=20)
     argparser.add_argument('--render', action='store_true')
     argparser.add_argument('--clear-store', action='store_true')
-    argparser.add_argument('--gene-weight-ratio', type=float, default=0.01)
+    argparser.add_argument('--gene-weight-ratio', type=float, default=0.001)
     argparser.add_argument('--freq-weight-ratio', type=float, default=1.)
     argparser.add_argument('--i-sigma', type=float, default=1.)
-    argparser.add_argument('--v-sigma', type=list_of(float), default=5.)
-    argparser.add_argument('--v-init', type=list_of(float), default=(-20., 20.))
-    argparser.add_argument('--num-hidden', type=int, default=16)
+    argparser.add_argument('--v-sigma', type=list_of(float), default=1.)
+    argparser.add_argument('--v-init', type=list_of(float), default=(-1., 1.))
+    argparser.add_argument('--num-hidden', type=int, default=64)
     argparser.add_argument('--best', action='store_true')
+    argparser.add_argument('--num-agents', type=int, default=10)
     config = argparser.parse_args()
-    main(config)
+
+    genepool = GenePool()
+    if config.clear_store:
+        genepool.clear()
+
+    if config.best:
+        main(config)
+    else:
+        processes = []
+        for _ in range(config.num_agents):
+            p = multiprocessing.Process(target=main, args=(config,))
+            p.start()
+            processes.append(p)
+            time.sleep(np.random.uniform(0.1))
+        for p in processes:
+            p.join()

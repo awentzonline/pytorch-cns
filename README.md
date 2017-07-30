@@ -16,6 +16,7 @@ AI Gym Examples
  * `aigym.py`: CartPole!
  * `atari.py`: Atari ram-base games
  * `atari_pix.py`: Atari pixel-based games
+ * `atari_pixrnn.py`: Atari pixel-based games with a recurrent neural network
 
 Install additional requirements: `pip install gym atari_py box2d`
 

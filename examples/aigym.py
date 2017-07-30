@@ -34,9 +34,10 @@ def main(config):
     state_shape = environment.observation_space.low.shape
     num_hidden = config.num_hidden
     num_actions = environment.action_space.n
-    model = MLP(state_shape[0], num_hidden, num_actions)
-    agent = Agent(model)
+    agent = Agent(MLP(state_shape[0], num_hidden, num_actions))
+    best_agent = Agent(MLP(state_shape[0], num_hidden, num_actions))
     agent.randomize(config.gene_weight_ratio, config.freq_weight_ratio, config.v_init)
+    agent.update_model()
     print(agent.genome)
     genepool = GenePool()
     if config.clear_store:
@@ -44,33 +45,37 @@ def main(config):
     num_episodes = 0
     while True:
         print('Starting episode {}'.format(num_episodes))
-        reward, steps = run_episode(agent, environment, config)
-        print('Reward {} in {} steps'.format(reward, steps))
         best_genomes = genepool.top_n(config.num_best)
-        # show off genome
-        if (num_episodes + 1) % 50 == 0 and config.render:
-            print('******** EXHIBITION ***********')
-            print(agent.genome)
-            best_genome, _ = random.chioce(best_genomes)
-            agent.load_genome(best_genome)
-            run_episode(agent, environment, config)
+        if not config.best:
+            reward, steps = run_episode(agent, environment, config)
+            print('Reward {} in {} steps'.format(reward, steps))
+            genepool.report_score(agent.genome, reward)
+            update_agent(agent, reward, best_genomes, config)
+        if best_genomes and np.random.uniform() < 0.1 or config.best:
+            best_genome, _ = best_genomes[0]#random.choice(best_genomes)
+            best_agent.load_genome(best_genome)
+            best_agent.update_model()
+            best_reward, steps = run_episode(best_agent, environment, config)
+            if not config.best:
+                genepool.report_score(best_agent.genome, best_reward)
 
-        if len(best_genomes) < config.min_genepool:
-            genepool.report_score(agent.genome, reward)  # we're still gathering scores
-        else:
-            _, best_score = best_genomes[0]
-            _, worst_best_score = best_genomes[-1]
-            print('Genepool top: {}, {}'.format(best_score, worst_best_score))
-            if reward < worst_best_score:
-                # Our score isn't notable
-                agent.crossover(best_genomes)
-            else:
-                # New high-ish score
-                print('new ok score')
-                genepool.report_score(agent.genome, reward)
-        agent.mutate(index_sigma=config.i_sigma, value_sigma=config.v_sigma)
-        agent.update_model()
         num_episodes += 1
+
+
+def update_agent(agent, reward, best_genomes, config):
+    if len(best_genomes) >= config.min_genepool:
+        _, best_score = best_genomes[0]
+        _, worst_best_score = best_genomes[-1]
+        print('Genepool top: {}, {}'.format(best_score, worst_best_score))
+        if reward < worst_best_score:
+            # Our score isn't notable
+            agent.crossover(best_genomes)
+        else:
+            # New high-ish score
+            print('new ok score')
+    agent.mutate(index_sigma=config.i_sigma, value_sigma=config.v_sigma)
+    agent.update_model()
+    return best_genomes
 
 
 def run_episode(agent, environment, config):
@@ -103,5 +108,6 @@ if __name__ == '__main__':
     argparser.add_argument('--v-sigma', type=list_of(float), default=1.)
     argparser.add_argument('--v-init', type=list_of(float), default=(-1., 1.))
     argparser.add_argument('--num-hidden', type=int, default=32)
+    argparser.add_argument('--best', action='store_true')
     config = argparser.parse_args()
     main(config)

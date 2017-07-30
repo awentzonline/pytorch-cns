@@ -22,8 +22,13 @@ best_model = population.best_model()  # current best model
 ```
 Examples
 --------
+So far, I've used the aigym example to solve CartPole and LunarLander.
+The image generation examples haven't yielded anything good for me, yet. 
+
 `aigym.py`: Evolve a group of agents to solve OpenAI Gym environments. Requires
 redis for storing the gene pool.
 
 `cnsdcgan.py`: DCGAN adapted from the PyTorch DCGAN example. Attempts to train
 both the discriminator and generator with compressed network search.
+
+`vggmse.py`: An autoencoder which uses VGG16 to calculate the loss.

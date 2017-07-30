@@ -8,16 +8,21 @@ This creates a genome per layer, rather than a single one for the entire model a
 Install with `pip install pytorch-cns`
 
 To do distributed agent evaluation (as in all of the examples) you'll need
-to install redis.
+to install `redis`. All of the AI Gym examples require `gym`.
 
 Examples
 --------
 So far, I've used the aigym example to solve CartPole and LunarLander.
+The Pong-ram atari example also begins converging but I haven't waited
+long enough to see if the stock hyperparameters actually allow it to
+solve the game.
 The image generation examples haven't yielded anything good for me, yet.
 
 `aigym.py`: Evolve a group of agents to solve OpenAI Gym environments.
 
-`atari.py`: Solve atari games in the OpenAI Gym.
+`atari.py`: Solve atari ram-base games in the OpenAI Gym.
+
+`atari_pix.py`: Solve atari pixel-based games in the OpenAI Gym
 
 `cnsdcgan.py`: DCGAN adapted from the PyTorch DCGAN example. Attempts to train
 both the discriminator and generator with compressed network search.

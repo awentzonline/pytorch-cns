@@ -7,6 +7,9 @@ This creates a genome per layer, rather than a single one for the entire model a
 
 Install with `pip install pytorch-cns`
 
+To do distributed agent evaluation (as in all of the examples) you'll need
+to install redis.
+
 Examples
 --------
 So far, I've used the aigym example to solve CartPole and LunarLander.

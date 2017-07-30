@@ -8,21 +8,35 @@ This creates a genome per layer, rather than a single one for the entire model a
 Install with `pip install pytorch-cns`
 
 To do distributed agent evaluation (as in all of the examples) you'll need
-to install `redis`. All of the AI Gym examples require `gym`.
+to `pip install redis` and start a redis server where the gene pool will be
+stored in an ordered set.
 
-Examples
---------
-So far, I've used the aigym example to solve CartPole and LunarLander.
-The Pong-ram atari example also begins converging but I haven't waited
-long enough to see if the stock hyperparameters actually allow it to
-solve the game.
-The image generation examples haven't yielded anything good for me, yet.
+AI Gym Examples
+---------------
+ * `aigym.py`: CartPole!
+ * `atari.py`: Atari ram-base games
+ * `atari_pix.py`: Atari pixel-based games
 
-`aigym.py`: Evolve a group of agents to solve OpenAI Gym environments.
+Install additional requirements: `pip install gym atari_py box2d`
 
-`atari.py`: Solve atari ram-base games in the OpenAI Gym.
+To run a pool of workers with default settings simply run the python file
+(e.g. `python atari_pix.py`). If you make any changes to the hyperparameters
+you'll to use the `--clear-store` flag which deletes the old gene pool upon start.
+Use `--num-agents` to customize the number of child processes spawned.
 
-`atari_pix.py`: Solve atari pixel-based games in the OpenAI Gym
+Invoke the example with `python atari_pix.py --render --best` to run the simulation
+with the fittest genome. This can be done at the same time as the workers are
+running to monitor progress.
+
+These examples use `multiprocessing` to run many agents at once (controlled by
+`--num-agents` default=10). A gene pool is kept in a redis ordered set--the
+score being the last total reward observed for that genome.
+
+Image generation
+----------------
+These do not converge on anything at the moment. Maybe, if you are a real GANimal,
+you can find the right configuration. The code here is hacked together from
+the pytorch example repo.
 
 `cnsdcgan.py`: DCGAN adapted from the PyTorch DCGAN example. Attempts to train
 both the discriminator and generator with compressed network search.

@@ -25,15 +25,12 @@ class MLP(nn.Module):
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf) x 32 x 32
             nn.Conv2d(base_filters, base_filters * 2, 4, 2, 1, bias=False),
-            #nn.BatchNorm2d(ndf * 2),
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf*2) x 16 x 16
             nn.Conv2d(base_filters * 2, base_filters * 4, 4, 2, 1, bias=False),
-            #nn.BatchNorm2d(ndf * 4),
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf*4) x 8 x 8
             nn.Conv2d(base_filters * 4, base_filters * 8, 4, 2, 1, bias=False),
-            #nn.BatchNorm2d(ndf * 8),
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf*8) x 4 x 4
         )
@@ -117,21 +114,22 @@ def run_episode(agent, environment, config):
 if __name__ == '__main__':
     import argparse
     import multiprocessing
+    import time
 
     argparser = argparse.ArgumentParser()
-    argparser.add_argument('--env', default='Pong-v0')
-    argparser.add_argument('--num-agents', type=int, default=10)
+    argparser.add_argument('--env', default='SpaceInvaders-v0')
     argparser.add_argument('--min-genepool', type=int, default=2)
     argparser.add_argument('--num-best', type=int, default=20)
     argparser.add_argument('--render', action='store_true')
     argparser.add_argument('--clear-store', action='store_true')
-    argparser.add_argument('--gene-weight-ratio', type=float, default=0.005)
+    argparser.add_argument('--gene-weight-ratio', type=float, default=0.001)
     argparser.add_argument('--freq-weight-ratio', type=float, default=1.)
-    argparser.add_argument('--i-sigma', type=float, default=0.5)
+    argparser.add_argument('--i-sigma', type=float, default=1.)
     argparser.add_argument('--v-sigma', type=list_of(float), default=1.)
     argparser.add_argument('--v-init', type=list_of(float), default=(-1., 1.))
-    argparser.add_argument('--num-hidden', type=int, default=32)
+    argparser.add_argument('--num-hidden', type=int, default=64)
     argparser.add_argument('--best', action='store_true')
+    argparser.add_argument('--num-agents', type=int, default=10)
     config = argparser.parse_args()
 
     genepool = GenePool()
@@ -146,5 +144,6 @@ if __name__ == '__main__':
             p = multiprocessing.Process(target=main, args=(config,))
             p.start()
             processes.append(p)
+            time.sleep(np.random.uniform(0.1))
         for p in processes:
             p.join()

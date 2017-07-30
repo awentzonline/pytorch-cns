@@ -95,6 +95,8 @@ def run_episode(agent, environment, config):
 
 if __name__ == '__main__':
     import argparse
+    import multiprocessing
+    
     argparser = argparse.ArgumentParser()
     argparser.add_argument('--env', default='CartPole-v0')
     argparser.add_argument('--min-genepool', type=int, default=2)

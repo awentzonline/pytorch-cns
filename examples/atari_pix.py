@@ -62,8 +62,6 @@ def main(config):
     agent.update_model()
     print(agent.summary())
     genepool = GenePool()
-    if config.clear_store:
-        genepool.clear()
     num_episodes = 0
     while True:
         print('Starting episode {}'.format(num_episodes))
@@ -118,6 +116,8 @@ def run_episode(agent, environment, config):
 
 if __name__ == '__main__':
     import argparse
+    import multiprocessing
+
     argparser = argparse.ArgumentParser()
     argparser.add_argument('--env', default='Pong-v0')
     argparser.add_argument('--num-agents', type=int, default=10)
@@ -133,4 +133,18 @@ if __name__ == '__main__':
     argparser.add_argument('--num-hidden', type=int, default=32)
     argparser.add_argument('--best', action='store_true')
     config = argparser.parse_args()
-    main(config)
+
+    genepool = GenePool()
+    if config.clear_store:
+        genepool.clear()
+
+    if config.best:
+        main(config)
+    else:
+        processes = []
+        for _ in range(config.num_agents):
+            p = multiprocessing.Process(target=main, args=(config,))
+            p.start()
+            processes.append(p)
+        for p in processes:
+            p.join()

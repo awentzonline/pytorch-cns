@@ -99,7 +99,6 @@ if __name__ == '__main__':
     import argparse
     argparser = argparse.ArgumentParser()
     argparser.add_argument('--env', default='Pong-ram-v0')
-    argparser.add_argument('--num-agents', type=int, default=10)
     argparser.add_argument('--min-genepool', type=int, default=2)
     argparser.add_argument('--num-best', type=int, default=20)
     argparser.add_argument('--render', action='store_true')
@@ -111,5 +110,20 @@ if __name__ == '__main__':
     argparser.add_argument('--v-init', type=list_of(float), default=(-1., 1.))
     argparser.add_argument('--num-hidden', type=int, default=32)
     argparser.add_argument('--best', action='store_true')
+    argparser.add_argument('--num-agents', type=int, default=10)
     config = argparser.parse_args()
-    main(config)
+
+    genepool = GenePool()
+    if config.clear_store:
+        genepool.clear()
+
+    if config.best:
+        main(config)
+    else:
+        processes = []
+        for _ in range(config.num_agents):
+            p = multiprocessing.Process(target=main, args=(config,))
+            p.start()
+            processes.append(p)
+        for p in processes:
+            p.join()

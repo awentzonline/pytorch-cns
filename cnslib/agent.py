@@ -17,7 +17,14 @@ class Agent:
         self.genome_b = ModelGenome(model)
 
     def __call__(self, *args):
-        return self.model(*args)
+        wrapped_args = []
+        for arg in args:
+            if not isinstance(arg, Variable):
+                if not isinstance(arg, torch.Tensor):
+                    arg = torch.from_numpy(arg)
+                arg = Variable(arg)
+            wrapped_args.append(arg)
+        return self.model(*wrapped_args)
 
     def policy(self, state, *args):
         state = state[None, ...].astype(np.float32)
@@ -31,7 +38,7 @@ class Agent:
         state = state[None, ...].astype(np.float32)
         state = torch.from_numpy(state)
         inputv = Variable(state)
-        result = self.model(inputv, *args)
+        result = self(inputv, *args)
         action = np.argmax(result[0].data.numpy())
         return action, result[1]
 

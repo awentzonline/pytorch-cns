@@ -7,7 +7,7 @@ import redis
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from scipy.misc import imresize
+from scipy.misc import imresize, imsave
 from torch.autograd import Variable
 
 from cnslib.agent import Agent
@@ -22,17 +22,17 @@ class MLP(nn.Module):
         num_input = int(np.prod(input_shape))
         self.num_hidden = num_hidden
         self.convs = nn.Sequential(
-            nn.Conv2d(input_shape[0], base_filters, 8, 4, 1, bias=False),
+            nn.Conv2d(input_shape[0], base_filters, 5, 2, 1, bias=False),
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf) x 32 x 32
-            nn.Conv2d(base_filters, base_filters * 2, 4, 2, 1, bias=False),
+            nn.Conv2d(base_filters, base_filters * 2, 5, 2, 1, bias=False),
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf*2) x 16 x 16
-            nn.Conv2d(base_filters * 2, base_filters * 2, 3, 1, 1, bias=False),
+            nn.Conv2d(base_filters * 2, base_filters * 2, 5, 2, 1, bias=False),
             nn.LeakyReLU(0.2, inplace=True),
-            # state size. (ndf*4) x 8 x 8
+            # state size. (ndf*2) x 9 x 9
         )
-        self.conv_out_size = base_filters * 2 * 7 * 7
+        self.conv_out_size = base_filters * 2 * 9 * 9
         self.rnn = nn.RNN(self.conv_out_size, self.num_hidden, batch_first=True)
         self.classifier = nn.Sequential(
             nn.Linear(num_hidden, num_actions),
@@ -51,7 +51,7 @@ class MLP(nn.Module):
 
 def main(config):
     environment = gym.make(config.env)
-    state_shape = (3, 64, 64)
+    state_shape = (1, 84, 84)
     num_hidden = config.num_hidden
     num_actions = environment.action_space.n
     base_filters = 16
@@ -70,14 +70,13 @@ def main(config):
             print('Reward {} in {} steps'.format(reward, steps))
             genepool.report_score(agent.genome, reward)
             update_agent(agent, reward, best_genomes, config)
-        if best_genomes and np.random.uniform() < 0.1 or config.best:
-            best_genome, _ = best_genomes[0]#random.choice(best_genomes)
+        if best_genomes and np.random.uniform() < 0.2 or config.best:
+            best_genome, _ = random.choice(best_genomes)
             best_agent.load_genome(best_genome)
             best_agent.update_model()
             print(best_agent.genome.summary())
             best_reward, steps = run_episode(best_agent, environment, config)
-            if not config.best:
-                genepool.report_score(best_agent.genome, best_reward)
+            genepool.report_score(best_agent.genome, best_reward)
 
         num_episodes += 1
 
@@ -107,7 +106,11 @@ def run_episode(agent, environment, config):
     while not done:
         if config.render:
             environment.render()
-        observation = imresize(observation, (64, 64)).transpose(2, 0, 1)
+        observation = imresize(observation.astype(np.float32), (84, 84), interp='bicubic')
+        observation = np.mean(observation, axis=2, keepdims=True).transpose(2, 0, 1)
+        if np.random.uniform() < 0.1:
+            imsave('observation.png', observation.transpose(1, 2, 0)[:,:,0].astype(np.uint8))
+        observation = observation / 255. - 0.5
         action, hidden = agent.policy_rnn(observation, hidden)
         observation, reward, done, info = environment.step(action)
         total_reward += reward
@@ -126,11 +129,11 @@ if __name__ == '__main__':
     argparser.add_argument('--num-best', type=int, default=20)
     argparser.add_argument('--render', action='store_true')
     argparser.add_argument('--clear-store', action='store_true')
-    argparser.add_argument('--gene-weight-ratio', type=float, default=0.01)
-    argparser.add_argument('--freq-weight-ratio', type=float, default=1.0)
+    argparser.add_argument('--gene-weight-ratio', type=float, default=0.001)
+    argparser.add_argument('--freq-weight-ratio', type=float, default=1.)
     argparser.add_argument('--i-sigma', type=float, default=1.)
-    argparser.add_argument('--v-sigma', type=list_of(float), default=1.)
-    argparser.add_argument('--v-init', type=list_of(float), default=(-1., 1.))
+    argparser.add_argument('--v-sigma', type=list_of(float), default=0.1)
+    argparser.add_argument('--v-init', type=list_of(float), default=(-.1, 1.))
     argparser.add_argument('--num-hidden', type=int, default=32)
     argparser.add_argument('--best', action='store_true')
     argparser.add_argument('--num-agents', type=int, default=10)

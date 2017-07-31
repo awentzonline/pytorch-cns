@@ -7,7 +7,8 @@ import redis
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from scipy.misc import imresize
+import torchvision.utils as vutils
+from scipy.misc import imresize, imsave
 from torch.autograd import Variable
 
 from cnslib.agent import Agent
@@ -32,7 +33,7 @@ class MLP(nn.Module):
             # state size. (ndf*2) x 7 x 7
         )
         self.classifier = nn.Sequential(
-            nn.Linear(base_filters * 2 * 7 * 7, num_hidden),
+            nn.Linear(base_filters * 2 * 10 * 10, num_hidden),
             nn.ReLU(),
             nn.Linear(num_hidden, num_actions),
             nn.Softmax()
@@ -46,7 +47,7 @@ class MLP(nn.Module):
 
 def main(config):
     environment = gym.make(config.env)
-    state_shape = (3, 64, 64)
+    state_shape = (1, 84, 84)
     num_hidden = config.num_hidden
     num_actions = environment.action_space.n
     base_filters = 16
@@ -66,7 +67,7 @@ def main(config):
             genepool.report_score(agent.genome, reward)
             update_agent(agent, reward, best_genomes, config)
         if best_genomes and np.random.uniform() < 0.1 or config.best:
-            best_genome, _ = best_genomes[0]#random.choice(best_genomes)
+            best_genome, _ = random.choice(best_genomes)
             best_agent.load_genome(best_genome)
             best_agent.update_model()
             print(best_agent.genome.summary())
@@ -101,7 +102,11 @@ def run_episode(agent, environment, config):
     while not done:
         if config.render:
             environment.render()
-        observation = imresize(observation, (64, 64)).transpose(2, 0, 1)
+        observation = imresize(observation.astype(np.float32), (84, 84), interp='bicubic')
+        observation = np.mean(observation, axis=2, keepdims=True).transpose(2, 0, 1)
+        # if np.random.uniform() < 0.0:
+        #     imsave('observation.png', observation.transpose(1, 2, 0)[:,:,0].astype(np.uint8))
+        observation = observation / 255. - 0.5
         action = agent.policy(observation)
         observation, reward, done, info = environment.step(action)
         total_reward += reward
@@ -120,7 +125,7 @@ if __name__ == '__main__':
     argparser.add_argument('--num-best', type=int, default=20)
     argparser.add_argument('--render', action='store_true')
     argparser.add_argument('--clear-store', action='store_true')
-    argparser.add_argument('--gene-weight-ratio', type=float, default=0.01)
+    argparser.add_argument('--gene-weight-ratio', type=float, default=0.001)
     argparser.add_argument('--freq-weight-ratio', type=float, default=1.)
     argparser.add_argument('--i-sigma', type=float, default=1.)
     argparser.add_argument('--v-sigma', type=list_of(float), default=1.)

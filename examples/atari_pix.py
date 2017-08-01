@@ -129,7 +129,7 @@ if __name__ == '__main__':
     argparser.add_argument('--freq-weight-ratio', type=float, default=1.)
     argparser.add_argument('--i-sigma', type=float, default=1.)
     argparser.add_argument('--v-sigma', type=list_of(float), default=1.)
-    argparser.add_argument('--v-init', type=list_of(float), default=(-1., 10.))
+    argparser.add_argument('--v-init', type=list_of(float), default=(-1., 1.))
     argparser.add_argument('--num-hidden', type=int, default=64)
     argparser.add_argument('--best', action='store_true')
     argparser.add_argument('--num-agents', type=int, default=10)

@@ -131,6 +131,8 @@ class ModelGenome:
         self._tmp_storages = []
         self.model = model
         for parameter in model.parameters():
+            if not parameter.requires_grad:
+                continue
             num_weights = np.prod(parameter.size())
             genome = Genome(num_weights)
             self.genomes.append(genome)
@@ -142,7 +144,10 @@ class ModelGenome:
                 gene_weight_ratio, max(1, int(genome.num_weights * freq_weight_ratio)), value_range)
 
     def decode(self, target_model):
-        for parameter, genome, _tmp in zip(target_model.parameters(), self.genomes, self._tmp_storages):
+        trainable_params = [p for p in target_model.parameters() if p.requires_grad]
+        for parameter, genome, _tmp in zip(trainable_params, self.genomes, self._tmp_storages):
+            if not parameter.requires_grad:
+                continue
             _tmp = genome.decode(_tmp)
             parameter.data = torch.from_numpy(_tmp)
 
@@ -187,6 +192,8 @@ class ModelGenome:
 
     def summary(self):
         lines = ['Model Genome']
-        for parameter, genome in zip(self.model.parameters(), self.genomes):
-            lines.append('P:{} G:{}'.format(parameter.size(), genome.summary()))
+        trainable_params = [p for p in self.model.parameters() if p.requires_grad]
+        for parameter, genome in zip(trainable_params, self.genomes):
+            line = 'P:{} G:{}'.format(parameter.size(), genome.summary())
+            lines.append(line)
         return '\n'.join(lines)

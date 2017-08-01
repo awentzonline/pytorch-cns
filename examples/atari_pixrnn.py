@@ -16,6 +16,12 @@ from cnslib.genepool import GenePool
 from cnslib.genome import ModelGenome
 
 
+def weights_init(m):
+    classname = m.__class__.__name__
+    if classname.find('Conv') != -1:
+        m.weight.data.normal_(0.0, 1.0)
+
+
 class MLP(nn.Module):
     def __init__(self, input_shape, base_filters, num_hidden, num_actions):
         super(MLP, self).__init__()
@@ -32,6 +38,9 @@ class MLP(nn.Module):
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf*2) x 9 x 9
         )
+        for p in self.convs.parameters():
+            p.requires_grad = False  # use random conv features
+        self.convs.apply(weights_init)
         self.conv_out_size = base_filters * 2 * 9 * 9
         self.rnn = nn.RNN(self.conv_out_size, self.num_hidden, batch_first=True)
         self.classifier = nn.Sequential(
@@ -103,6 +112,8 @@ def run_episode(agent, environment, config):
     observation = environment.reset()
     done = False
     hidden = agent.model.init_hidden()
+    player_ready = False
+    start_delay = np.random.randint(config.random_start)
     while not done:
         if config.render:
             environment.render()
@@ -111,7 +122,13 @@ def run_episode(agent, environment, config):
         if np.random.uniform() < 0.1:
             imsave('observation.png', observation.transpose(1, 2, 0)[:,:,0].astype(np.uint8))
         observation = observation / 255. - 0.5
-        action, hidden = agent.policy_rnn(observation, hidden)
+        # take action
+        player_ready = start_delay <= 0
+        if player_ready:
+            action, hidden = agent.policy_rnn(observation, hidden)
+        else:
+            action = np.random.randint(environment.action_space.n)
+            start_delay -= 1
         observation, reward, done, info = environment.step(action)
         total_reward += reward
         num_steps += 1
@@ -132,11 +149,12 @@ if __name__ == '__main__':
     argparser.add_argument('--gene-weight-ratio', type=float, default=0.001)
     argparser.add_argument('--freq-weight-ratio', type=float, default=1.)
     argparser.add_argument('--i-sigma', type=float, default=1.)
-    argparser.add_argument('--v-sigma', type=list_of(float), default=0.1)
-    argparser.add_argument('--v-init', type=list_of(float), default=(-.1, 1.))
+    argparser.add_argument('--v-sigma', type=list_of(float), default=1.)
+    argparser.add_argument('--v-init', type=list_of(float), default=(-1, 1.))
     argparser.add_argument('--num-hidden', type=int, default=32)
     argparser.add_argument('--best', action='store_true')
     argparser.add_argument('--num-agents', type=int, default=10)
+    argparser.add_argument('--random-start', type=int, default=30)
     config = argparser.parse_args()
 
     genepool = GenePool()

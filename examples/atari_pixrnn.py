@@ -22,9 +22,9 @@ def weights_init(m):
         m.weight.data.normal_(0.0, 1.0)
 
 
-class MLP(nn.Module):
+class CNN(nn.Module):
     def __init__(self, input_shape, base_filters, num_hidden, num_actions):
-        super(MLP, self).__init__()
+        super(CNN, self).__init__()
         num_input = int(np.prod(input_shape))
         self.num_hidden = num_hidden
         self.convs = nn.Sequential(
@@ -38,9 +38,9 @@ class MLP(nn.Module):
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf*2) x 9 x 9
         )
-        for p in self.convs.parameters():
-            p.requires_grad = False  # use random conv features
-        self.convs.apply(weights_init)
+        # for p in self.convs.parameters():
+        #     p.requires_grad = False  # use random conv features
+        #self.convs.apply(weights_init)
         self.conv_out_size = base_filters * 2 * 9 * 9
         self.rnn = nn.RNN(self.conv_out_size, self.num_hidden, batch_first=True)
         self.classifier = nn.Sequential(
@@ -55,6 +55,26 @@ class MLP(nn.Module):
         return self.classifier(z.view(z.size(0), -1)), hidden
 
     def init_hidden(self):
+        return Variable(torch.randn(1, 1, self.num_hidden))
+
+
+class MLP(nn.Module):
+    def __init__(self, input_shape, base_filters, num_hidden, num_actions):
+        super(MLP, self).__init__()
+        num_input = int(np.prod(input_shape))
+        self.num_hidden = num_hidden
+        self.rnn = nn.RNN(num_input, self.num_hidden, batch_first=True)
+        self.classifier = nn.Sequential(
+            nn.Linear(num_hidden, num_actions),
+            nn.Softmax()
+        )
+
+    def forward(self, x, hidden):
+        x = x.view(x.size(0), 1, -1)
+        z, hidden = self.rnn(x, hidden)
+        return self.classifier(z.view(z.size(0), -1)), hidden
+
+    def init_hidden(self):
         return Variable(torch.zeros(1, 1, self.num_hidden))
 
 
@@ -64,8 +84,9 @@ def main(config):
     num_hidden = config.num_hidden
     num_actions = environment.action_space.n
     base_filters = 16
-    agent = Agent(MLP(state_shape, base_filters, num_hidden, num_actions))
-    best_agent = Agent(MLP(state_shape, base_filters, num_hidden, num_actions))
+    model_class = MLP#CNN
+    agent = Agent(model_class(state_shape, base_filters, num_hidden, num_actions))
+    best_agent = Agent(model_class(state_shape, base_filters, num_hidden, num_actions))
     agent.randomize(config.gene_weight_ratio, config.freq_weight_ratio, config.v_init)
     agent.update_model()
     print(agent.summary())
@@ -143,7 +164,7 @@ if __name__ == '__main__':
     argparser = argparse.ArgumentParser()
     argparser.add_argument('--env', default='SpaceInvaders-v0')
     argparser.add_argument('--min-genepool', type=int, default=2)
-    argparser.add_argument('--num-best', type=int, default=20)
+    argparser.add_argument('--num-best', type=int, default=40)
     argparser.add_argument('--render', action='store_true')
     argparser.add_argument('--clear-store', action='store_true')
     argparser.add_argument('--gene-weight-ratio', type=float, default=0.001)

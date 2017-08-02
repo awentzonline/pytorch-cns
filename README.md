@@ -1,22 +1,34 @@
 PyTorch-CNS
 ==============
-A work-in-progress implementation of [Compressed Network Search](http://people.idsia.ch/~juergen/compressednetworksearch.html)
+An implementation of [Generalized Compressed Network Search](http://people.idsia.ch/~juergen/compressednetworksearch.html)
 for PyTorch models.
 
 This creates a genome per layer, rather than a single one for the entire model as is described in the paper.
 
-Install with `pip install pytorch-cns`
+There are two optimizers:
+ * Asynchronous Gene Pool: a master list of genomes, sorted by fitness, is worked
+ on by a pool of agents which draw fit genomes for mutation and evaluation.
+ * Synchronous Score Swap: each worker maintains a full copy of all genomes and
+ only fitness scores are exchanged.
 
-To do distributed agent evaluation (as in all of the examples) you'll need
-to `pip install redis` and start a redis server where the gene pool will be
-stored in an ordered set.
+Installation
+------------
+Install python package with `pip install pytorch-cns`
+
+Install [redis](https://redis.io/) which is used as the datastore. The examples
+expect a redis instance listening on localhost at the default port. You can change
+this by passing a JSON dict of `StrictRedis` kwargs via the `--redis-params` command
+line option.
 
 AI Gym Examples
 ---------------
  * `aigym.py`: CartPole!
  * `atari.py`: Atari ram-based games
  * `atari_pix.py`: Atari pixel-based games
- * `atari_pixrnn.py`: Atari pixel-based games with a recurrent neural network
+ * `atari_pixrnn_gpa.py`: Atari pixel-based games with a recurrent neural network,
+ using the asynchronous gene pool optimizer.
+ * `atari_pixrnn_ss.py`: Atari pixel-based games with a recurrent neural network,
+ using the synchronous
 
 Install additional requirements: `pip install gym atari_py box2d`
 

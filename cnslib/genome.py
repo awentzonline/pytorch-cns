@@ -30,16 +30,17 @@ class Genome:
     '''Each gene is a tuple of the form (index, value) which represents
     a DCT coefficient.
     '''
-    def __init__(self, num_weights, genes=None):
+    def __init__(self, num_weights, genes=None, rng=None):
+        self.rng = rng or np.random.RandomState()
         self.num_weights = num_weights
         self.genes = genes or []
 
     def randomize(self, gene_weight_ratio, max_index, value_range):
         self.genes = []
         num_genes = max(2, int(gene_weight_ratio * self.num_weights))
-        print(max_index, value_range)
+        #print(max_index, value_range)
         for i in range(num_genes):
-            gene = Gene(np.random.randint(0, max_index), np.random.uniform(*value_range))
+            gene = Gene(self.rng.randint(0, max_index), self.rng.uniform(*value_range))
             self.genes.append(gene)
 
     def decode(self, target):
@@ -64,15 +65,15 @@ class Genome:
 
     def mutate(self, p_index=0.1, p_value=0.8, index_sigma=1., value_sigma=1.):
         for gene in self.genes:
-            if np.random.uniform() < p_index:
-                gene.index += int(np.random.normal(0., index_sigma))
+            if self.rng.uniform() < p_index:
+                gene.index += int(self.rng.normal(0., index_sigma))
                 gene.index = np.clip(gene.index, 0, self.num_weights - 1)
-            if np.random.uniform() < p_value:
-                gene.value += np.random.normal(0., value_sigma)
+            if self.rng.uniform() < p_value:
+                gene.value += self.rng.normal(0., value_sigma)
 
     def split(self, random=True):
         if random:
-            p = np.random.randint(len(self.genes))
+            p = self.rng.randint(len(self.genes))
         else:
             p = len(self.genes) // 2
         left = [g.clone() for g in self.genes[:p]]
@@ -81,8 +82,8 @@ class Genome:
 
     def cut(self, p_cut):
         num_genes = len(self.genes)
-        if np.random.uniform() < p_cut * num_genes:
-            pivot = np.random.randint(num_genes)
+        if self.rng.uniform() < p_cut * num_genes:
+            pivot = self.rng.randint(num_genes)
             left = [g.clone() for g in self.genes[:pivot]]
             right = [g.clone() for g in self.genes[pivot:]]
             return left, right
@@ -94,7 +95,7 @@ class Genome:
         results = []
         current = []
         for chromosome in itertools.chain(this_cuts, other_cuts):
-            if not current or np.random.uniform() < p_splice:
+            if not current or self.rng.uniform() < p_splice:
                 current += chromosome
             elif current:
                 results.append(current)
@@ -110,7 +111,7 @@ class Genome:
         gs = filter(None, (left_a, left_b, right_a, right_b))
         result = []
         for g in random.shuffle(gs):
-            if np.random.uniform() < p_splice_next:
+            if self.rng.uniform() < p_splice_next:
                 result += g
             p_splice_next *= p_splice
         self.genes = result
@@ -119,22 +120,33 @@ class Genome:
         return '<Genome w={} {}>'.format(
             self.num_weights, ', '.join(str(g) for g in self.genes))
 
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        del state['rng']
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self.rng = np.random.RandomState()
+
     def summary(self):
         return 'Genome nw={} ng={} mv={}'.format(
             self.num_weights, len(self.genes),
             np.mean([g.value for g in self.genes])
         )
 
+
 class ModelGenome:
-    def __init__(self, model):
+    def __init__(self, model, rng=None):
         self.genomes = []
         self._tmp_storages = []
         self.model = model
+        self.rng = rng or np.random.RandomState()
         for parameter in model.parameters():
             if not parameter.requires_grad:
                 continue
             num_weights = np.prod(parameter.size())
-            genome = Genome(num_weights)
+            genome = Genome(num_weights, rng=self.rng)
             self.genomes.append(genome)
             self._tmp_storages.append(np.zeros(parameter.size(), dtype=np.float32))
 
@@ -164,17 +176,19 @@ class ModelGenome:
             rights.append(right)
         return lefts, rights
 
-    def child(self, a, b):
+    def child(self, a, b, p_splice=0.5):
         for genome, genome_a, genome_b in zip(self.genomes, a.genomes, b.genomes):
             left_a, right_a = genome_a.split()
             left_b, right_b = genome_b.split()
-            if np.random.uniform() > 0.5:
-                left = left_a
-                right = right_b
-            else:
-                left = left_b
-                right = right_a
-            genome.genes = left + right
+            p_splice_next = 1.0
+            gs = list(filter(None, (left_a, left_b, right_a, right_b)))
+            result = []
+            self.rng.shuffle(gs)
+            for g in gs:
+                if self.rng.uniform() < p_splice_next:
+                    result += g
+                p_splice_next *= p_splice
+            genome.genes = result
 
     def serialize_genomes(self):
         d = pickle.dumps(self.genomes)
@@ -186,6 +200,8 @@ class ModelGenome:
         g = base64.b64decode(data)
         g = zlib.decompress(g)
         self.genomes = pickle.loads(g)
+        for g in self.genomes:
+            g.rng = self.rng
 
     def __str__(self):
         return self.summary()

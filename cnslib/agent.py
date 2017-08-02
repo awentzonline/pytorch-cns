@@ -8,13 +8,16 @@ from cnslib.genome import ModelGenome
 
 
 class Agent:
-    def __init__(self, model, cuda=False):
+    def __init__(self, model, seed=None, id=None, rng=None, cuda=False):
         self.model = model
         self.model.eval()
         self.cuda = cuda
-        self.genome = ModelGenome(model)
-        self.genome_a = ModelGenome(model)
-        self.genome_b = ModelGenome(model)
+        self.id = id
+        self.rng = rng or np.random.RandomState(seed)
+
+        self.genome = ModelGenome(model, rng=self.rng)
+        self.genome_a = ModelGenome(model, rng=self.rng)
+        self.genome_b = ModelGenome(model, rng=self.rng)
 
     def __call__(self, *args):
         wrapped_args = []

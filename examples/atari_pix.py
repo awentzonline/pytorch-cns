@@ -17,9 +17,9 @@ from cnslib.genepool import GenePool
 from cnslib.genome import ModelGenome
 
 
-class MLP(nn.Module):
+class CNN(nn.Module):
     def __init__(self, input_shape, base_filters, num_hidden, num_actions):
-        super(MLP, self).__init__()
+        super(CNN, self).__init__()
         num_input = int(np.prod(input_shape))
         self.convs = nn.Sequential(
             nn.Conv2d(input_shape[0], base_filters, 8, 4, 1, bias=False),
@@ -45,14 +45,33 @@ class MLP(nn.Module):
         return self.classifier(z)
 
 
+class MLP(nn.Module):
+    def __init__(self, input_shape, base_filters, num_hidden, num_actions):
+        super(MLP, self).__init__()
+        num_input = int(np.prod(input_shape))
+        self.num_hidden = num_hidden
+        self.classifier = nn.Sequential(
+            nn.Linear(num_input, num_hidden),
+            nn.ReLU(),
+            nn.Linear(num_hidden, num_hidden),
+            nn.ReLU(),
+            nn.Linear(num_hidden, num_actions),
+            nn.Softmax()
+        )
+
+    def forward(self, x):
+        return self.classifier(x.view(x.size(0), -1))
+
+
 def main(config):
     environment = gym.make(config.env)
     state_shape = (1, 84, 84)
     num_hidden = config.num_hidden
     num_actions = environment.action_space.n
     base_filters = 16
-    agent = Agent(MLP(state_shape, base_filters, num_hidden, num_actions))
-    best_agent = Agent(MLP(state_shape, base_filters, num_hidden, num_actions))
+    model_class = dict(mlp=MLP, cnn=CNN)[config.model]
+    agent = Agent(model_class(state_shape, base_filters, num_hidden, num_actions))
+    best_agent = Agent(model_class(state_shape, base_filters, num_hidden, num_actions))
     agent.randomize(config.gene_weight_ratio, config.freq_weight_ratio, config.v_init)
     agent.update_model()
     print(agent.summary())
@@ -117,7 +136,6 @@ def run_episode(agent, environment, config):
 if __name__ == '__main__':
     import argparse
     import multiprocessing
-    import time
 
     argparser = argparse.ArgumentParser()
     argparser.add_argument('--env', default='SpaceInvaders-v0')
@@ -133,6 +151,7 @@ if __name__ == '__main__':
     argparser.add_argument('--num-hidden', type=int, default=64)
     argparser.add_argument('--best', action='store_true')
     argparser.add_argument('--num-agents', type=int, default=10)
+    argparser.add_argument('--model', default='mlp')
     config = argparser.parse_args()
 
     genepool = GenePool()

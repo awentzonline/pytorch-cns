@@ -84,7 +84,7 @@ def main(config):
     num_hidden = config.num_hidden
     num_actions = environment.action_space.n
     base_filters = 16
-    model_class = MLP#CNN
+    model_class = dict(mlp=MLP, cnn=CNN)[config.model]
     agent = Agent(model_class(state_shape, base_filters, num_hidden, num_actions))
     best_agent = Agent(model_class(state_shape, base_filters, num_hidden, num_actions))
     agent.randomize(config.gene_weight_ratio, config.freq_weight_ratio, config.v_init)
@@ -159,8 +159,7 @@ def run_episode(agent, environment, config):
 if __name__ == '__main__':
     import argparse
     import multiprocessing
-    import time
-
+    
     argparser = argparse.ArgumentParser()
     argparser.add_argument('--env', default='SpaceInvaders-v0')
     argparser.add_argument('--min-genepool', type=int, default=2)
@@ -172,10 +171,11 @@ if __name__ == '__main__':
     argparser.add_argument('--i-sigma', type=float, default=1.)
     argparser.add_argument('--v-sigma', type=list_of(float), default=1.)
     argparser.add_argument('--v-init', type=list_of(float), default=(-1, 1.))
-    argparser.add_argument('--num-hidden', type=int, default=32)
+    argparser.add_argument('--num-hidden', type=int, default=64)
     argparser.add_argument('--best', action='store_true')
     argparser.add_argument('--num-agents', type=int, default=10)
     argparser.add_argument('--random-start', type=int, default=30)
+    argparser.add_argument('--model', default='mlp')
     config = argparser.parse_args()
 
     genepool = GenePool()

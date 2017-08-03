@@ -1,4 +1,8 @@
+import hashlib
+
+import numpy as np
 import redis
+import scipy.stats
 
 
 class GenePool:
@@ -9,8 +13,14 @@ class GenePool:
         self.redis = redis.StrictRedis(**redis_params)
 
     def report_score(self, genome, score):
+        '''Saves a history of each genome's fitness and saves the mean in
+        a sorted set'''
         data = genome.serialize_genomes()
-        self.redis.zadd(self.key, score, data)
+        genome_key = self.genome_key(data)
+        self.redis.rpush(genome_key, score)
+        history = self.redis.lrange(genome_key, 0, -1)
+        history = list(map(float, history))
+        self.redis.zadd(self.key, np.mean(history), data)
 
     def top_n(self, n, reverse=True):
         if reverse:
@@ -21,4 +31,7 @@ class GenePool:
         return results
 
     def clear(self):
-        self.redis.delete(self.key)
+        self.redis.flushdb()
+
+    def genome_key(self, serialized_genome):
+        return '{}/gene/{}'.format(self.key, hashlib.sha1(serialized_genome).hexdigest())

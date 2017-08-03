@@ -1,0 +1,15 @@
+version: '3'
+services:
+  redis:
+    image: redis
+
+  worker:
+    build: .
+    links:
+      - redis
+    volumes:
+      - .:/app
+    environment:
+      NUM_WORKERS: 10
+      GYM_ENV: SpaceInvaders-v0
+    command: ["python", "-u", "examples/atari_pixrnn_gpa.py", "--num-agents=10", "--clear-store", "--redis-params={\"host\": \"redis\"}"]

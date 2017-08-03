@@ -77,7 +77,7 @@ class MLP(nn.Module):
         return self.classifier(z.view(z.size(0), -1)), hidden
 
     def init_hidden(self):
-        return Variable(torch.zeros(1, 1, self.num_hidden))
+        return Variable(torch.randn(1, 1, self.num_hidden))
 
 
 class Experiment:

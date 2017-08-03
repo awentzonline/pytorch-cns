@@ -27,13 +27,13 @@ class Optimizer(BaseOptimizer):
         _, best_score = best_genomes[0]
         _, worst_best_score = best_genomes[-1]
         print('Genepool top: {}, {}'.format(best_score, worst_best_score))
-        if reward < worst_best_score:
-            # Our score isn't notable
-            self.agent.crossover(best_genomes)
+        if best_genomes and np.random.uniform() < 0.1:
+            # replay top genomes to make sure they're not flukes
+            best_genome, _ = best_genomes[self.rng.randint(len(best_genomes))]
+            self.agent.load_genome(best_genome)
         else:
-            # New high-ish score
-            print('new ok score')
-        if best_score != reward:  # re-evaluate the best one
+            if reward < 0.5 * (worst_best_score + best_score):
+                self.agent.crossover(best_genomes)
             self.agent.mutate(index_sigma=self.config.i_sigma, value_sigma=self.config.v_sigma)
         self.agent.update_model()
 

@@ -27,7 +27,7 @@ class Optimizer(BaseOptimizer):
         _, best_score = best_genomes[0]
         _, worst_best_score = best_genomes[-1]
         print('Genepool top: {}, {}'.format(best_score, worst_best_score))
-        if best_genomes and np.random.uniform() < 0.1:
+        if best_genomes and self.rng.uniform() < 0.1:
             # replay top genomes to make sure they're not flukes
             best_genome, _ = best_genomes[self.rng.randint(len(best_genomes))]
             self.agent.load_genome(best_genome)

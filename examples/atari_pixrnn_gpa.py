@@ -43,7 +43,7 @@ class CNN(nn.Module):
         # for p in self.convs.parameters():
         #     p.requires_grad = False  # use random conv features
         #self.convs.apply(weights_init)
-        self.conv_out_size = base_filters * 2 * 9 * 9
+        self.conv_out_size = base_filters * 2 * 11 * 11
         self.rnn = nn.RNN(self.conv_out_size, self.num_hidden, batch_first=True)
         self.classifier = nn.Sequential(
             nn.Linear(num_hidden, num_actions),

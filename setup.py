@@ -4,7 +4,7 @@ from setuptools import find_packages
 
 setup(
     name='pytorch-cns',
-    version='0.2.1',
+    version='0.2.2',
     description='Generalized Compressed Network Search with PyTorch',
     author='Adam Wentz',
     author_email='adam@adamwentz.com',

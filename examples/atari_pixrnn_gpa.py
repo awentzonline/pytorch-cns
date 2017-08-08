@@ -132,7 +132,7 @@ class Experiment:
         agent.genome = genome
         agent.update_model()
         while not done:
-            if self.config.render:
+            if self.config.render or self.config.exhibition:
                 environment.render()
             observation = imresize(observation.astype(np.float32), (100, 100), interp='bicubic')
             observation = np.mean(observation, axis=2, keepdims=True).transpose(2, 0, 1)

@@ -32,7 +32,7 @@ class Optimizer(BaseOptimizer):
             best_genome, _ = best_genomes[self.rng.randint(len(best_genomes))]
             self.agent.load_genome(best_genome)
         else:
-            if reward < 0.5 * (worst_best_score + best_score):
+            if reward < 0.5 * (worst_best_score + best_score) and len(best_genomes) > 1:
                 self.agent.crossover(best_genomes)
             self.agent.mutate(index_sigma=self.config.i_sigma, value_sigma=self.config.v_sigma)
         self.agent.update_model()

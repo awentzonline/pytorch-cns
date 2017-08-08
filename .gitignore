@@ -13,3 +13,4 @@ monitor-data/
 data/
 examples/data/
 examples/*.png
+*.rdb

@@ -30,20 +30,22 @@ class CNN(nn.Module):
         num_input = int(np.prod(input_shape))
         self.num_hidden = num_hidden
         self.convs = nn.Sequential(
-            nn.Conv2d(input_shape[0], base_filters, 5, 2, 1, bias=False),
+            nn.Conv2d(input_shape[0], base_filters, 4, 2, 1, bias=False),
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf) x 32 x 32
-            nn.Conv2d(base_filters, base_filters * 2, 5, 2, 1, bias=False),
+            nn.Conv2d(base_filters, base_filters * 2, 4, 2, 1, bias=False),
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf*2) x 16 x 16
-            nn.Conv2d(base_filters * 2, base_filters * 2, 5, 2, 1, bias=False),
+            nn.Conv2d(base_filters * 2, base_filters * 2, 4, 2, 1, bias=False),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(base_filters * 2, base_filters * 2, 4, 2, 1, bias=False),
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf*2) x 9 x 9
         )
         # for p in self.convs.parameters():
         #     p.requires_grad = False  # use random conv features
         #self.convs.apply(weights_init)
-        self.conv_out_size = base_filters * 2 * 11 * 11
+        self.conv_out_size = base_filters * 2 * 6 * 6
         self.rnn = nn.RNN(self.conv_out_size, self.num_hidden, batch_first=True)
         self.classifier = nn.Sequential(
             nn.Linear(num_hidden, num_actions),

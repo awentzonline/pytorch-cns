@@ -35,9 +35,13 @@ class Genome:
         self.num_weights = num_weights
         self.genes = genes or []
 
-    def randomize(self, gene_weight_ratio, max_index, value_range):
+    def randomize(self, gene_weight_ratio, max_index, value_range, weight_f='log'):
         self.genes = []
-        num_genes = max(2, int(gene_weight_ratio * self.num_weights))
+        if weight_f == 'linear':
+            base_freqs = self.num_weights
+        else:
+            base_freqs = getattr(np, weight_f)(self.num_weights)
+        num_genes = max(2, int(gene_weight_ratio * base_freqs))
         #print(max_index, value_range)
         for i in range(num_genes):
             gene = Gene(self.rng.randint(0, max_index), self.rng.uniform(*value_range))

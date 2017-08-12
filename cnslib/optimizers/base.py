@@ -34,7 +34,7 @@ class BaseOptimizer:
 
     @classmethod
     def add_config_to_parser(cls, parser):
-        parser.add_argument('--gene-weight-ratio', type=float, default=0.001)
+        parser.add_argument('--gene-weight-ratio', type=float, default=1.)
         parser.add_argument('--freq-weight-ratio', type=float, default=1.)
         parser.add_argument('--i-sigma', type=float, default=1.)
         parser.add_argument('--v-sigma', type=list_of(float), default=1.)

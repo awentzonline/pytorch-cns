@@ -29,21 +29,31 @@ class Agent:
             wrapped_args.append(arg)
         return self.model(*wrapped_args)
 
-    def policy(self, state, *args):
+    def policy(self, state, *args, deterministic=False):
         state = state[None, ...].astype(np.float32)
         state = torch.from_numpy(state)
         inputv = Variable(state)
         ps = self.model(inputv, *args).data.numpy()
-        ps = np.argmax(ps)
+        ps = ps[0] # TODO: batch > 1
+        if deterministic:
+            ps = np.argmax(ps)
+        else:
+            indexes = np.arange(ps.shape[0])
+            ps = self.rng.choice(indexes, p=ps)
         return ps
 
-    def policy_rnn(self, state, *args):
+    def policy_rnn(self, state, *args, deterministic=False):
         state = state[None, ...].astype(np.float32)
         state = torch.from_numpy(state)
         inputv = Variable(state)
         result = self(inputv, *args)
-        action = np.argmax(result[0].data.numpy())
-        return action, result[1]
+        ps = result[0].data.numpy()
+        ps = ps[0] # TODO: batch > 1
+        if deterministic:
+            ps = np.argmax(ps)
+        else:
+                ps = self.rng.choice(ps.shape[0], p=ps)
+        return ps, result[1]
 
     def randomize(self, gene_weight_ratio, freq_weight_ratio, init_value_range):
         self.genome.randomize(gene_weight_ratio, freq_weight_ratio, init_value_range)

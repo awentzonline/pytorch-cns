@@ -50,12 +50,12 @@ class Genome:
     def decode(self, target):
         target.fill(0.)
         original_shape = target.shape
-        target = target.flatten()
+        target = target.ravel()
         for gene in self.genes:
             target[gene.index] = gene.value
         target = target.reshape(original_shape)
         len_shape = len(original_shape)
-        kwargs = dict(norm='ortho', overwrite_x=True)
+        kwargs = dict(norm='ortho')
         if len_shape == 1:
             out = idct(target, **kwargs)
         elif len_shape == 2:
